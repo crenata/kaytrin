@@ -92,31 +92,35 @@ class Home extends PureComponent {
         this.setState({
             loading: true
         }, () => {
-            this.context.kaytrin.deployed().then((contract) => {
-                contract.exec.call({
-                    from: this.context.account
-                }).then((result) => {
-                    if (result) {
-                        let goto = document.createElement("a");
-                        goto.href = `https://${data.domain}.herokuapp.com/pvk?query=live.js+-f+checking-addresses.txt+-s+${data.last_crunch}+-e+${data.end_crunch}`;
-                        goto.target = "_blank";
-                        goto.click();
-                        goto.remove();
-                    }
+            if (!IsEmpty(this.context.kaytrin)) {
+                this.context.kaytrin.deployed().then((contract) => {
+                    contract.exec.call({
+                        from: this.context.account
+                    }).then((result) => {
+                        if (result) {
+                            let goto = document.createElement("a");
+                            goto.href = `https://${data.domain}.herokuapp.com/pvk?query=live.js+-f+checking-addresses.txt+-s+${data.last_crunch}+-e+${data.end_crunch}`;
+                            goto.target = "_blank";
+                            goto.click();
+                            goto.remove();
+                        }
+                    }).catch((error) => {
+                        window.alert("You're not the owner!");
+                    }).finally(() => {
+                        this.setState({
+                            loading: false
+                        });
+                    });
                 }).catch((error) => {
-                    window.alert("You're not the owner!");
-                }).finally(() => {
                     this.setState({
                         loading: false
+                    }, () => {
+                        ErrorNotDeployed(this.context.kaytrin, error);
                     });
-                });
-            }).catch((error) => {
-                this.setState({
-                    loading: false
-                }, () => {
-                    ErrorNotDeployed(this.context.kaytrin, error);
-                });
-            }).finally(() => {});
+                }).finally(() => {});
+            } else {
+                window.alert("You're not connected to Blockchain!");
+            }
         });
     }
 
