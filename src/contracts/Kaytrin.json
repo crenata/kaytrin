@@ -1,0 +1,568 @@
+{
+  "contractName": "Kaytrin",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
+      "type": "event"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "renounceOwnership",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "exec",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "metadata": "{\"compiler\":{\"version\":\"0.5.16+commit.9c3226ce\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"constant\":true,\"inputs\":[],\"name\":\"exec\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"methods\":{\"owner()\":{\"details\":\"Returns the address of the current owner.\"},\"renounceOwnership()\":{\"details\":\"Leaves the contract without owner. It will not be possible to call `onlyOwner` functions anymore. Can only be called by the current owner.     * NOTE: Renouncing ownership will leave the contract without an owner, thereby removing any functionality that is only available to the owner.\"},\"transferOwnership(address)\":{\"details\":\"Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner.\"}}},\"userdoc\":{\"methods\":{}}},\"settings\":{\"compilationTarget\":{\"project:/contracts/Kaytrin.sol\":\"Kaytrin\"},\"evmVersion\":\"istanbul\",\"libraries\":{},\"optimizer\":{\"enabled\":false,\"runs\":200},\"remappings\":[]},\"sources\":{\"project:/contracts/Context.sol\":{\"keccak256\":\"0xbb92fdbf153a45908ba4d415cf56aff27507181b1883a56abe0830758696d941\",\"urls\":[\"bzz-raw://848301b21b0830516906859e1624aa87c1cd415780c8aea460ef1abc98a947b2\",\"dweb:/ipfs/QmanswK3f11Yhc46hA576rxzkpJaQYYZrwcqrMTNdbpXDe\"]},\"project:/contracts/Kaytrin.sol\":{\"keccak256\":\"0xb8aea1a20ca706941f1d8a42c2afc673d2141df3e15a4a2d15a6943eba23d2f9\",\"urls\":[\"bzz-raw://16f40f7bc3dee2cf27f10e4f1b68e496198c3bc3e968e62d58d039463cbb3f88\",\"dweb:/ipfs/QmQQoCkXzg96jBFmjrHPVic73B7FjcuZwjj1JNjioKCKRR\"]},\"project:/contracts/Ownable.sol\":{\"keccak256\":\"0x7151c8e96b942dc21af861ce3acc8ec8422b3b8167da525520c3c39726095189\",\"urls\":[\"bzz-raw://0c4a00a88e5f15c06b7956af7e2d39a871a9ce92cf5077ad57f5cfb17981b917\",\"dweb:/ipfs/QmUbbzFVorTHUmKPirCbYsVG4Pa2ogAKTt3e3twFSyyRZi\"]}},\"version\":1}",
+  "bytecode": "0x608060405260006100146100b760201b60201c565b9050806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055508073ffffffffffffffffffffffffffffffffffffffff16600073ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a3506100bf565b600033905090565b61060a806100ce6000396000f3fe608060405234801561001057600080fd5b506004361061004c5760003560e01c8063715018a6146100515780638da5cb5b1461005b578063c1c0e9c4146100a5578063f2fde38b146100c7575b600080fd5b61005961010b565b005b610063610293565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b6100ad6102bc565b604051808215151515815260200191505060405180910390f35b610109600480360360208110156100dd57600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff16906020019092919050505061038e565b005b610113610463565b73ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16146101d4576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260208152602001807f4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e657281525060200191505060405180910390fd5b600073ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a360008060006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550565b60008060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16905090565b60006102c6610463565b73ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1614610387576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260208152602001807f4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e657281525060200191505060405180910390fd5b6001905090565b610396610463565b73ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1614610457576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260208152602001807f4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e657281525060200191505060405180910390fd5b6104608161046b565b50565b600033905090565b600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614156104f1576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260268152602001806105b06026913960400191505060405180910390fd5b8073ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a3806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505056fe4f776e61626c653a206e6577206f776e657220697320746865207a65726f2061646472657373a265627a7a72315820f219ca307c96e0d8b3de7fb785f6711e3aa41739b9996d5e7f32812bf3c3b77c64736f6c63430005100032",
+  "deployedBytecode": "0x608060405234801561001057600080fd5b506004361061004c5760003560e01c8063715018a6146100515780638da5cb5b1461005b578063c1c0e9c4146100a5578063f2fde38b146100c7575b600080fd5b61005961010b565b005b610063610293565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b6100ad6102bc565b604051808215151515815260200191505060405180910390f35b610109600480360360208110156100dd57600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff16906020019092919050505061038e565b005b610113610463565b73ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16146101d4576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260208152602001807f4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e657281525060200191505060405180910390fd5b600073ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a360008060006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550565b60008060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16905090565b60006102c6610463565b73ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1614610387576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260208152602001807f4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e657281525060200191505060405180910390fd5b6001905090565b610396610463565b73ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1614610457576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260208152602001807f4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e657281525060200191505060405180910390fd5b6104608161046b565b50565b600033905090565b600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614156104f1576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260268152602001806105b06026913960400191505060405180910390fd5b8073ffffffffffffffffffffffffffffffffffffffff166000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a3806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505056fe4f776e61626c653a206e6577206f776e657220697320746865207a65726f2061646472657373a265627a7a72315820f219ca307c96e0d8b3de7fb785f6711e3aa41739b9996d5e7f32812bf3c3b77c64736f6c63430005100032",
+  "sourceMap": "75:127:3:-;;;822:17:5;842:12;:10;;;:12;;:::i;:::-;822:32;;873:9;864:6;;:18;;;;;;;;;;;;;;;;;;930:9;897:43;;926:1;897:43;;;;;;;;;;;;789:158;75:127:3;;753:95:1;797:15;831:10;824:17;;753:95;:::o;75:127:3:-;;;;;;;",
+  "deployedSourceMap": "75:127:3:-;;;;8:9:-1;5:2;;;30:1;27;20:12;5:2;75:127:3;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1645:137:5;;;:::i;:::-;;1023:76;;;:::i;:::-;;;;;;;;;;;;;;;;;;;;;;;118:82:3;;;:::i;:::-;;;;;;;;;;;;;;;;;;;;;;;1931:107:5;;;;;;13:2:-1;8:3;5:11;2:2;;;29:1;26;19:12;2:2;1931:107:5;;;;;;;;;;;;;;;;;;;:::i;:::-;;1645:137;1236:12;:10;:12::i;:::-;1226:22;;:6;;;;;;;;;;;:22;;;1218:67;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;1743:1;1706:40;;1727:6;;;;;;;;;;;1706:40;;;;;;;;;;;;1773:1;1756:6;;:19;;;;;;;;;;;;;;;;;;1645:137::o;1023:76::-;1060:7;1086:6;;;;;;;;;;;1079:13;;1023:76;:::o;118:82:3:-;166:4;1236:12:5;:10;:12::i;:::-;1226:22;;:6;;;;;;;;;;;:22;;;1218:67;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;189:4:3;182:11;;118:82;:::o;1931:107:5:-;1236:12;:10;:12::i;:::-;1226:22;;:6;;;;;;;;;;;:22;;;1218:67;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2003:28;2022:8;2003:18;:28::i;:::-;1931:107;:::o;753:95:1:-;797:15;831:10;824:17;;753:95;:::o;2139:225:5:-;2232:1;2212:22;;:8;:22;;;;2204:73;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2321:8;2292:38;;2313:6;;;;;;;;;;;2292:38;;;;;;;;;;;;2349:8;2340:6;;:17;;;;;;;;;;;;;;;;;;2139:225;:::o",
+  "source": "pragma solidity ^0.5.16;\n\nimport \"./Context.sol\";\nimport \"./Ownable.sol\";\n\ncontract Kaytrin is Context, Ownable {\n    function exec() external view onlyOwner returns(bool) {\n        return true;\n    }\n}",
+  "sourcePath": "/root/ReactJSProjects/kaytrin/contracts/Kaytrin.sol",
+  "ast": {
+    "absolutePath": "project:/contracts/Kaytrin.sol",
+    "exportedSymbols": {
+      "Kaytrin": [
+        650
+      ]
+    },
+    "id": 651,
+    "nodeType": "SourceUnit",
+    "nodes": [
+      {
+        "id": 633,
+        "literals": [
+          "solidity",
+          "^",
+          "0.5",
+          ".16"
+        ],
+        "nodeType": "PragmaDirective",
+        "src": "0:24:3"
+      },
+      {
+        "absolutePath": "project:/contracts/Context.sol",
+        "file": "./Context.sol",
+        "id": 634,
+        "nodeType": "ImportDirective",
+        "scope": 651,
+        "sourceUnit": 543,
+        "src": "26:23:3",
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "absolutePath": "project:/contracts/Ownable.sol",
+        "file": "./Ownable.sol",
+        "id": 635,
+        "nodeType": "ImportDirective",
+        "scope": 651,
+        "sourceUnit": 793,
+        "src": "50:23:3",
+        "symbolAliases": [],
+        "unitAlias": ""
+      },
+      {
+        "baseContracts": [
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 636,
+              "name": "Context",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 542,
+              "src": "95:7:3",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_Context_$542",
+                "typeString": "contract Context"
+              }
+            },
+            "id": 637,
+            "nodeType": "InheritanceSpecifier",
+            "src": "95:7:3"
+          },
+          {
+            "arguments": null,
+            "baseName": {
+              "contractScope": null,
+              "id": 638,
+              "name": "Ownable",
+              "nodeType": "UserDefinedTypeName",
+              "referencedDeclaration": 792,
+              "src": "104:7:3",
+              "typeDescriptions": {
+                "typeIdentifier": "t_contract$_Ownable_$792",
+                "typeString": "contract Ownable"
+              }
+            },
+            "id": 639,
+            "nodeType": "InheritanceSpecifier",
+            "src": "104:7:3"
+          }
+        ],
+        "contractDependencies": [
+          542,
+          792
+        ],
+        "contractKind": "contract",
+        "documentation": null,
+        "fullyImplemented": true,
+        "id": 650,
+        "linearizedBaseContracts": [
+          650,
+          792,
+          542
+        ],
+        "name": "Kaytrin",
+        "nodeType": "ContractDefinition",
+        "nodes": [
+          {
+            "body": {
+              "id": 648,
+              "nodeType": "Block",
+              "src": "172:28:3",
+              "statements": [
+                {
+                  "expression": {
+                    "argumentTypes": null,
+                    "hexValue": "74727565",
+                    "id": 646,
+                    "isConstant": false,
+                    "isLValue": false,
+                    "isPure": true,
+                    "kind": "bool",
+                    "lValueRequested": false,
+                    "nodeType": "Literal",
+                    "src": "189:4:3",
+                    "subdenomination": null,
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    },
+                    "value": "true"
+                  },
+                  "functionReturnParameters": 645,
+                  "id": 647,
+                  "nodeType": "Return",
+                  "src": "182:11:3"
+                }
+              ]
+            },
+            "documentation": null,
+            "id": 649,
+            "implemented": true,
+            "kind": "function",
+            "modifiers": [
+              {
+                "arguments": null,
+                "id": 642,
+                "modifierName": {
+                  "argumentTypes": null,
+                  "id": 641,
+                  "name": "onlyOwner",
+                  "nodeType": "Identifier",
+                  "overloadedDeclarations": [],
+                  "referencedDeclaration": 736,
+                  "src": "148:9:3",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_modifier$__$",
+                    "typeString": "modifier ()"
+                  }
+                },
+                "nodeType": "ModifierInvocation",
+                "src": "148:9:3"
+              }
+            ],
+            "name": "exec",
+            "nodeType": "FunctionDefinition",
+            "parameters": {
+              "id": 640,
+              "nodeType": "ParameterList",
+              "parameters": [],
+              "src": "131:2:3"
+            },
+            "returnParameters": {
+              "id": 645,
+              "nodeType": "ParameterList",
+              "parameters": [
+                {
+                  "constant": false,
+                  "id": 644,
+                  "name": "",
+                  "nodeType": "VariableDeclaration",
+                  "scope": 649,
+                  "src": "166:4:3",
+                  "stateVariable": false,
+                  "storageLocation": "default",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_bool",
+                    "typeString": "bool"
+                  },
+                  "typeName": {
+                    "id": 643,
+                    "name": "bool",
+                    "nodeType": "ElementaryTypeName",
+                    "src": "166:4:3",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_bool",
+                      "typeString": "bool"
+                    }
+                  },
+                  "value": null,
+                  "visibility": "internal"
+                }
+              ],
+              "src": "165:6:3"
+            },
+            "scope": 650,
+            "src": "118:82:3",
+            "stateMutability": "view",
+            "superFunction": null,
+            "visibility": "external"
+          }
+        ],
+        "scope": 651,
+        "src": "75:127:3"
+      }
+    ],
+    "src": "0:202:3"
+  },
+  "legacyAST": {
+    "attributes": {
+      "absolutePath": "project:/contracts/Kaytrin.sol",
+      "exportedSymbols": {
+        "Kaytrin": [
+          650
+        ]
+      }
+    },
+    "children": [
+      {
+        "attributes": {
+          "literals": [
+            "solidity",
+            "^",
+            "0.5",
+            ".16"
+          ]
+        },
+        "id": 633,
+        "name": "PragmaDirective",
+        "src": "0:24:3"
+      },
+      {
+        "attributes": {
+          "SourceUnit": 543,
+          "absolutePath": "project:/contracts/Context.sol",
+          "file": "./Context.sol",
+          "scope": 651,
+          "symbolAliases": [
+            null
+          ],
+          "unitAlias": ""
+        },
+        "id": 634,
+        "name": "ImportDirective",
+        "src": "26:23:3"
+      },
+      {
+        "attributes": {
+          "SourceUnit": 793,
+          "absolutePath": "project:/contracts/Ownable.sol",
+          "file": "./Ownable.sol",
+          "scope": 651,
+          "symbolAliases": [
+            null
+          ],
+          "unitAlias": ""
+        },
+        "id": 635,
+        "name": "ImportDirective",
+        "src": "50:23:3"
+      },
+      {
+        "attributes": {
+          "contractDependencies": [
+            542,
+            792
+          ],
+          "contractKind": "contract",
+          "documentation": null,
+          "fullyImplemented": true,
+          "linearizedBaseContracts": [
+            650,
+            792,
+            542
+          ],
+          "name": "Kaytrin",
+          "scope": 651
+        },
+        "children": [
+          {
+            "attributes": {
+              "arguments": null
+            },
+            "children": [
+              {
+                "attributes": {
+                  "contractScope": null,
+                  "name": "Context",
+                  "referencedDeclaration": 542,
+                  "type": "contract Context"
+                },
+                "id": 636,
+                "name": "UserDefinedTypeName",
+                "src": "95:7:3"
+              }
+            ],
+            "id": 637,
+            "name": "InheritanceSpecifier",
+            "src": "95:7:3"
+          },
+          {
+            "attributes": {
+              "arguments": null
+            },
+            "children": [
+              {
+                "attributes": {
+                  "contractScope": null,
+                  "name": "Ownable",
+                  "referencedDeclaration": 792,
+                  "type": "contract Ownable"
+                },
+                "id": 638,
+                "name": "UserDefinedTypeName",
+                "src": "104:7:3"
+              }
+            ],
+            "id": 639,
+            "name": "InheritanceSpecifier",
+            "src": "104:7:3"
+          },
+          {
+            "attributes": {
+              "documentation": null,
+              "implemented": true,
+              "isConstructor": false,
+              "kind": "function",
+              "name": "exec",
+              "scope": 650,
+              "stateMutability": "view",
+              "superFunction": null,
+              "visibility": "external"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "parameters": [
+                    null
+                  ]
+                },
+                "children": [],
+                "id": 640,
+                "name": "ParameterList",
+                "src": "131:2:3"
+              },
+              {
+                "children": [
+                  {
+                    "attributes": {
+                      "constant": false,
+                      "name": "",
+                      "scope": 649,
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "type": "bool",
+                      "value": null,
+                      "visibility": "internal"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "name": "bool",
+                          "type": "bool"
+                        },
+                        "id": 643,
+                        "name": "ElementaryTypeName",
+                        "src": "166:4:3"
+                      }
+                    ],
+                    "id": 644,
+                    "name": "VariableDeclaration",
+                    "src": "166:4:3"
+                  }
+                ],
+                "id": 645,
+                "name": "ParameterList",
+                "src": "165:6:3"
+              },
+              {
+                "attributes": {
+                  "arguments": null
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "argumentTypes": null,
+                      "overloadedDeclarations": [
+                        null
+                      ],
+                      "referencedDeclaration": 736,
+                      "type": "modifier ()",
+                      "value": "onlyOwner"
+                    },
+                    "id": 641,
+                    "name": "Identifier",
+                    "src": "148:9:3"
+                  }
+                ],
+                "id": 642,
+                "name": "ModifierInvocation",
+                "src": "148:9:3"
+              },
+              {
+                "children": [
+                  {
+                    "attributes": {
+                      "functionReturnParameters": 645
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "argumentTypes": null,
+                          "hexvalue": "74727565",
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": true,
+                          "lValueRequested": false,
+                          "subdenomination": null,
+                          "token": "bool",
+                          "type": "bool",
+                          "value": "true"
+                        },
+                        "id": 646,
+                        "name": "Literal",
+                        "src": "189:4:3"
+                      }
+                    ],
+                    "id": 647,
+                    "name": "Return",
+                    "src": "182:11:3"
+                  }
+                ],
+                "id": 648,
+                "name": "Block",
+                "src": "172:28:3"
+              }
+            ],
+            "id": 649,
+            "name": "FunctionDefinition",
+            "src": "118:82:3"
+          }
+        ],
+        "id": 650,
+        "name": "ContractDefinition",
+        "src": "75:127:3"
+      }
+    ],
+    "id": 651,
+    "name": "SourceUnit",
+    "src": "0:202:3"
+  },
+  "compiler": {
+    "name": "solc",
+    "version": "0.5.16+commit.9c3226ce.Emscripten.clang"
+  },
+  "networks": {
+    "3": {
+      "events": {},
+      "links": {},
+      "address": "0xEB364C1e825F2D722451e8d8d3a5e6F2efC686d5",
+      "transactionHash": "0xe03c2d351d9a19aee59d91dac33470cb1e61f62250358e0c031a870ea8e13f7e"
+    }
+  },
+  "schemaVersion": "3.4.3",
+  "updatedAt": "2021-12-17T09:31:22.219Z",
+  "networkType": "ethereum",
+  "devdoc": {
+    "methods": {
+      "owner()": {
+        "details": "Returns the address of the current owner."
+      },
+      "renounceOwnership()": {
+        "details": "Leaves the contract without owner. It will not be possible to call `onlyOwner` functions anymore. Can only be called by the current owner.     * NOTE: Renouncing ownership will leave the contract without an owner, thereby removing any functionality that is only available to the owner."
+      },
+      "transferOwnership(address)": {
+        "details": "Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner."
+      }
+    }
+  },
+  "userdoc": {
+    "methods": {}
+  }
+}
