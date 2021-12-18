@@ -1,16 +1,10 @@
 import React, {PureComponent} from "react";
 import Config from "../configs/Config";
 import {db} from "../configs/FirebaseConfig";
-import {collection, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, setDoc, startAt, startAfter, Timestamp, where} from "firebase/firestore";
+import {collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, setDoc, startAt, startAfter, Timestamp, updateDoc, where} from "firebase/firestore";
 import IsEmpty from "../helpers/IsEmpty";
 import update from "immutability-helper";
-import LinearProgress from "@mui/material/LinearProgress";
-import TablePagination from "@mui/material/TablePagination";
-import FormControl from "@mui/material/FormControl";
-import InputLabel from "@mui/material/InputLabel";
-import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
-import TextField from "@mui/material/TextField";
+import {Collapse, FormControl, InputLabel, LinearProgress, MenuItem, Select, TablePagination, TextField} from "@mui/material";
 import LoadingButton from "@mui/lab/LoadingButton";
 import {Modal} from "react-bootstrap";
 import Template from "../template/Template";
@@ -41,6 +35,8 @@ class Home extends PureComponent {
             listener: null,
             loading: false,
             canSeeOutput: false,
+            editing: false,
+            deleting: false,
             modalDetail: false,
             modalAdd: false,
             data: [],
@@ -76,31 +72,41 @@ class Home extends PureComponent {
                     nanoseconds: 0
                 }
             },
-            addNew: {
+            add: {
                 domain: "",
                 start_crunch: "",
                 end_crunch: "",
                 last_crunch: ""
             },
-            addNewError: {
+            addError: {
                 domain: false,
                 start_crunch: false,
                 end_crunch: false,
                 last_crunch: false
-            }
+            },
+            edit: {
+                start_crunch: "",
+                end_crunch: "",
+                last_crunch: ""
+            },
+            editError: {
+                start_crunch: false,
+                end_crunch: false,
+                last_crunch: false
+            },
+            delete: "",
+            deleteError: false
         };
     }
 
     componentDidMount() {
         this.getDatabase();
     }
-
     componentDidUpdate(prevProps, prevState, snapshot) {
         if (this.props !== prevProps) {
             this.getDatabase();
         }
     }
-
     componentWillUnmount() {
         if (!IsEmpty(this.state.listener)) this.state.listener();
     }
@@ -108,7 +114,6 @@ class Home extends PureComponent {
     isSleep(data) {
         return Date.now() - (new Timestamp(data.updated_at.seconds, data.updated_at.nanoseconds)).toMillis() >= this.thirtyMinutesInMillis;
     }
-
     getStatusText(data) {
         if (data.status === this.statuses.zero) {
             return <p className="m-0 fw-bold"><span className="text-warning">Not Deployed</span></p>;
@@ -132,7 +137,6 @@ class Home extends PureComponent {
             return <p className="m-0 fw-bold"><span className="text-warning">Unknown</span></p>;
         }
     }
-
     verifyOwner() {
         return new Promise((resolve, reject) => {
             this.setState({
@@ -147,9 +151,7 @@ class Home extends PureComponent {
                         }).catch((error) => {
                             window.alert("You're not the owner!");
                         }).finally(() => {
-                            this.setState({
-                                loading: false
-                            });
+                            this.setValue("loading", false);
                         });
                     }).catch((error) => {
                         this.setState({
@@ -169,6 +171,13 @@ class Home extends PureComponent {
             });
         });
     }
+    setValue(name, value, callback = null) {
+        this.setState({
+            [name]: value
+        }, () => {
+            if (callback && typeof callback === "function") callback();
+        });
+    }
 
     seeOutput() {
         this.verifyOwner().then((result) => {
@@ -183,20 +192,18 @@ class Home extends PureComponent {
             });
         });
     }
-
     awake(data) {
         this.verifyOwner().then((result) => {
             let goto = document.createElement("a");
-            goto.href = `https://${data.domain}.herokuapp.com/pvk?query=live.js+-f+checking-addresses.txt+-s+${data.last_crunch}+-e+${data.end_crunch}`;
+            goto.href = process.env.REACT_APP_AWAKE_URL.replace("{domain}", data.domain).replace("{last_crunch}", data.last_crunch).replace("{end_crunch}", data.end_crunch);
             goto.target = "_blank";
             goto.click();
             goto.remove();
         });
     }
-
-    addNew() {
+    add() {
         this.setState({
-            addNewError: {
+            addError: {
                 domain: false,
                 start_crunch: false,
                 end_crunch: false,
@@ -207,20 +214,20 @@ class Home extends PureComponent {
             let errorStartCrunch = false;
             let errorEndCrunch = false;
             let errorLastCrunch = false;
-            if (IsEmpty(this.state.addNew.domain)) errorDomain = true;
-            if (IsEmpty(this.state.addNew.start_crunch)) errorStartCrunch = true;
-            if (IsEmpty(this.state.addNew.end_crunch)) errorEndCrunch = true;
-            if (IsEmpty(this.state.addNew.last_crunch)) errorLastCrunch = true;
+            if (IsEmpty(this.state.add.domain)) errorDomain = true;
+            if (IsEmpty(this.state.add.start_crunch)) errorStartCrunch = true;
+            if (IsEmpty(this.state.add.end_crunch)) errorEndCrunch = true;
+            if (IsEmpty(this.state.add.last_crunch)) errorLastCrunch = true;
             if (!errorDomain && !errorStartCrunch && !errorEndCrunch && !errorLastCrunch) {
                 this.verifyOwner().then((result) => {
-                    getDoc(doc(db, "pvks", this.state.addNew.domain)).then((data) => {
+                    getDoc(doc(db, "pvks", this.state.add.domain)).then((data) => {
                         if (IsEmpty(data.data())) {
-                            setDoc(doc(db, "pvks", this.state.addNew.domain), {
+                            setDoc(doc(db, "pvks", this.state.add.domain), {
                                 id: this.state.lastData.id + 1,
-                                domain: this.state.addNew.domain,
-                                start_crunch: this.state.addNew.start_crunch,
-                                end_crunch: this.state.addNew.end_crunch,
-                                last_crunch: this.state.addNew.last_crunch,
+                                domain: this.state.add.domain,
+                                start_crunch: this.state.add.start_crunch,
+                                end_crunch: this.state.add.end_crunch,
+                                last_crunch: this.state.add.last_crunch,
                                 output: [],
                                 status: this.statuses.zero,
                                 updated_at: Timestamp.now()
@@ -254,7 +261,7 @@ class Home extends PureComponent {
                 });
             } else {
                 this.setState({
-                    addNewError: {
+                    addError: {
                         domain: errorDomain,
                         start_crunch: errorStartCrunch,
                         end_crunch: errorEndCrunch,
@@ -264,12 +271,74 @@ class Home extends PureComponent {
             }
         });
     }
+    edit() {
+        this.setState({
+            editError: {
+                start_crunch: false,
+                end_crunch: false,
+                last_crunch: false
+            }
+        }, () => {
+            let errorStartCrunch = false;
+            let errorEndCrunch = false;
+            let errorLastCrunch = false;
+            if (IsEmpty(this.state.edit.start_crunch)) errorStartCrunch = true;
+            if (IsEmpty(this.state.edit.end_crunch)) errorEndCrunch = true;
+            if (IsEmpty(this.state.edit.last_crunch)) errorLastCrunch = true;
+            if (!errorStartCrunch && !errorEndCrunch && !errorLastCrunch) {
+                this.verifyOwner().then((result) => {
+                    updateDoc(doc(db, "pvks", this.state.dataDetail.domain), {
+                        start_crunch: this.state.edit.start_crunch,
+                        end_crunch: this.state.edit.end_crunch,
+                        last_crunch: this.state.edit.last_crunch
+                    }).then((data) => {
+                        this.setValue("editing", false);
+                    }).catch((error) => {
+                        window.alert("Whoops, something went wrong!");
+                    }).finally(() => {
+                        this.setValue("loading", false);
+                    });
+                });
+            } else {
+                this.setState({
+                    editError: {
+                        start_crunch: errorStartCrunch,
+                        end_crunch: errorEndCrunch,
+                        last_crunch: errorLastCrunch
+                    }
+                });
+            }
+        });
+    }
+    delete() {
+        this.setState({
+            deleteError: false
+        }, () => {
+            if (!IsEmpty(this.state.delete) && this.state.delete === this.state.dataDetail.domain) {
+                this.verifyOwner().then((result) => {
+                    deleteDoc(doc(db, "pvks", this.state.dataDetail.domain)).then((data) => {
+                        this.setState({
+                            deleting: false,
+                            modalDetail: false
+                        });
+                    }).catch((error) => {
+                        window.alert("Whoops, something went wrong!");
+                    }).finally(() => {
+                        this.setValue("loading", false);
+                    });
+                });
+            } else {
+                this.setState({
+                    deleteError: true
+                });
+            }
+        });
+    }
 
     getDatabase() {
         this.getData();
         this.getLastData();
     }
-
     getData() {
         if (!IsEmpty(this.state.listener)) this.state.listener();
         this.setState({
@@ -310,6 +379,13 @@ class Home extends PureComponent {
                             }, () => {
                                 this.setState({
                                     data: snapshotListener.docs.map(value => value.data())
+                                }, () => {
+                                    if (this.state.modalDetail) {
+                                        let find = snapshotListener.docs.find(value => value.id === this.state.dataDetail.domain);
+                                        if (!IsEmpty(find)) this.setState({
+                                            dataDetail: find.data()
+                                        });
+                                    }
                                 });
                             });
                         })
@@ -318,13 +394,10 @@ class Home extends PureComponent {
             }).catch((error) => {
                 console.error("getData", error.message);
             }).finally(() => {
-                this.setState({
-                    loading: false
-                });
+                this.setValue("loading", false);
             });
         });
     }
-
     getLastData() {
         getDocs(query(
             this.state.collection,
@@ -333,20 +406,10 @@ class Home extends PureComponent {
         )).then((snapshot) => {
             let data = {...this.state.lastData};
             snapshot.docs.map(value => data = value.data());
-            this.setState({
-                lastData: data
-            });
+            this.setValue("lastData", data);
         }).catch((error) => {
             console.error("getLastData", error.message);
         }).finally(() => {});
-    }
-
-    setValue(name, value, callback = null) {
-        this.setState({
-            [name]: value
-        }, () => {
-            if (callback && typeof callback === "function") callback();
-        });
     }
 
     onPageChange(event, newPage) {
@@ -358,7 +421,6 @@ class Home extends PureComponent {
             this.generateQuery();
         });
     }
-
     onRowPerPageChange(event) {
         this.setState({
             query: update(this.state.query, {
@@ -369,7 +431,6 @@ class Home extends PureComponent {
             this.generateQuery();
         });
     }
-
     generateQuery() {
         let query = "";
         if (!IsEmpty(this.state.query.search)) {
@@ -391,7 +452,10 @@ class Home extends PureComponent {
     render() {
         return (
             <Template className="bgc-1A1E23">
-                <Modal size={"xl"} show={this.state.modalDetail} onHide={() => this.setValue("modalDetail", false)}>
+                <Modal size={"xl"} show={this.state.modalDetail} onHide={() => this.setState({
+                    modalDetail: false,
+                    editing: false
+                })}>
                     <Modal.Body className="data-detail">
                         <div className="table-responsive pb-2 pb-sm-2 pb-md-0 pb-lg-0 pb-xl-0">
                             <table className="table table-borderless w-auto m-0">
@@ -487,8 +551,91 @@ class Home extends PureComponent {
                                 </tbody>
                             </table>
                         </div>
+                        <div className="mt-3">
+                            <Collapse in={this.state.editing}>
+                                <TextField
+                                    label="Start Crunch *"
+                                    size={"small"}
+                                    className="w-100"
+                                    error={this.state.editError.start_crunch}
+                                    value={this.state.edit.start_crunch}
+                                    onChange={(event) => this.setValue("edit", update(this.state.edit, {
+                                        start_crunch: {$set: event.target.value}
+                                    }))}
+                                />
+                                <TextField
+                                    label="End Crunch *"
+                                    size={"small"}
+                                    className="w-100 mt-3"
+                                    error={this.state.editError.end_crunch}
+                                    value={this.state.edit.end_crunch}
+                                    onChange={(event) => this.setValue("edit", update(this.state.edit, {
+                                        end_crunch: {$set: event.target.value}
+                                    }))}
+                                />
+                                <TextField
+                                    label="Last Crunch *"
+                                    size={"small"}
+                                    className="w-100 mt-3"
+                                    error={this.state.editError.last_crunch}
+                                    value={this.state.edit.last_crunch}
+                                    onChange={(event) => this.setValue("edit", update(this.state.edit, {
+                                        last_crunch: {$set: event.target.value}
+                                    }))}
+                                />
+                            </Collapse>
+                        </div>
+                        <div className="mt-3">
+                            <Collapse in={this.state.deleting}>
+                                <TextField
+                                    label="Type the domain *"
+                                    size={"small"}
+                                    className="w-100"
+                                    error={this.state.deleteError}
+                                    value={this.state.delete}
+                                    onChange={(event) => this.setValue("delete", event.target.value)}
+                                />
+                            </Collapse>
+                        </div>
                         <div className="text-center mt-3">
-                            <button className="btn btn-sm text-white bgc-1F1E30 px-4" onClick={(event) => this.setValue("modalDetail", false)}>Close</button>
+                            {this.state.editing ?
+                                <>
+                                    <LoadingButton
+                                        size={"small"}
+                                        color={"primary"}
+                                        loading={this.state.loading}
+                                        variant={"contained"}
+                                        onClick={(event) => this.edit()}
+                                    >Save</LoadingButton>
+                                    <button className="btn btn-sm btn-secondary px-3 ms-3" onClick={(event) => this.setValue("editing", false)}>Cancel</button>
+                                </> :
+                                <button className="btn btn-sm text-white bgc-FFA500 px-4" onClick={(event) => this.setState({
+                                    editing: true,
+                                    deleting: false,
+                                    edit: {
+                                        start_crunch: this.state.dataDetail.start_crunch,
+                                        end_crunch: this.state.dataDetail.end_crunch,
+                                        last_crunch: this.state.dataDetail.last_crunch
+                                    }
+                                })}>Edit</button>
+                            }
+                            <button className="btn btn-sm text-white bgc-1F1E30 px-4 mx-3" onClick={(event) => this.setState({
+                                modalDetail: false,
+                                editing: false
+                            })}>Close</button>
+                            {this.state.deleting ?
+                                <LoadingButton
+                                    size={"small"}
+                                    color={"error"}
+                                    loading={this.state.loading}
+                                    variant={"contained"}
+                                    onClick={(event) => this.delete()}
+                                >Delete</LoadingButton> :
+                                <button className="btn btn-sm btn-danger px-4" onClick={(event) => this.setState({
+                                    deleting: true,
+                                    editing: false
+                                })}>Delete</button>
+                            }
                         </div>
                     </Modal.Body>
                 </Modal>
@@ -500,9 +647,9 @@ class Home extends PureComponent {
                                 label="Domain *"
                                 size={"small"}
                                 className="w-100"
-                                error={this.state.addNewError.domain}
-                                value={this.state.addNew.domain}
-                                onChange={(event) => this.setValue("addNew", update(this.state.addNew, {
+                                error={this.state.addError.domain}
+                                value={this.state.add.domain}
+                                onChange={(event) => this.setValue("add", update(this.state.add, {
                                     domain: {$set: event.target.value}
                                 }))}
                             />
@@ -510,9 +657,9 @@ class Home extends PureComponent {
                                 label="Start Crunch *"
                                 size={"small"}
                                 className="w-100 mt-3"
-                                error={this.state.addNewError.start_crunch}
-                                value={this.state.addNew.start_crunch}
-                                onChange={(event) => this.setValue("addNew", update(this.state.addNew, {
+                                error={this.state.addError.start_crunch}
+                                value={this.state.add.start_crunch}
+                                onChange={(event) => this.setValue("add", update(this.state.add, {
                                     start_crunch: {$set: event.target.value}
                                 }))}
                             />
@@ -520,9 +667,9 @@ class Home extends PureComponent {
                                 label="End Crunch *"
                                 size={"small"}
                                 className="w-100 mt-3"
-                                error={this.state.addNewError.end_crunch}
-                                value={this.state.addNew.end_crunch}
-                                onChange={(event) => this.setValue("addNew", update(this.state.addNew, {
+                                error={this.state.addError.end_crunch}
+                                value={this.state.add.end_crunch}
+                                onChange={(event) => this.setValue("add", update(this.state.add, {
                                     end_crunch: {$set: event.target.value}
                                 }))}
                             />
@@ -530,9 +677,9 @@ class Home extends PureComponent {
                                 label="Last Crunch *"
                                 size={"small"}
                                 className="w-100 mt-3"
-                                error={this.state.addNewError.last_crunch}
-                                value={this.state.addNew.last_crunch}
-                                onChange={(event) => this.setValue("addNew", update(this.state.addNew, {
+                                error={this.state.addError.last_crunch}
+                                value={this.state.add.last_crunch}
+                                onChange={(event) => this.setValue("add", update(this.state.add, {
                                     last_crunch: {$set: event.target.value}
                                 }))}
                             />
@@ -544,7 +691,7 @@ class Home extends PureComponent {
                                 color={"primary"}
                                 loading={this.state.loading}
                                 variant={"contained"}
-                                onClick={(event) => this.addNew()}
+                                onClick={(event) => this.add()}
                                 className="ms-2 px-4"
                             >Add</LoadingButton>
                         </div>
@@ -632,7 +779,7 @@ class Home extends PureComponent {
                                                     <button className="btn btn-sm btn-secondary w-100" onClick={(event) => this.setValue("dataDetail", value, () => this.setValue("modalDetail", true))}>Info</button>
                                                 </div>
                                                 <div className="col-12 col-sm-12 col-md-6 col-lg-6 col-xl-6 mt-2 mt-sm-2 mt-md-0 mt-lg-0 mt-xl-0">
-                                                    <button className="btn btn-sm bgc-1C152D text-white w-100" onClick={(event) => this.awake(value)} disabled={!this.isSleep(value)}>Awake</button>
+                                                    <button className="btn btn-sm bgc-1C152D text-white w-100" onClick={(event) => this.awake(value)} disabled={value.status === this.statuses.zero || !this.isSleep(value)}>Awake</button>
                                                 </div>
                                             </div>
                                         </div>
