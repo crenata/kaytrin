@@ -1,7 +1,7 @@
 import React, {PureComponent} from "react";
 import Config from "../configs/Config";
 import {db} from "../configs/FirebaseConfig";
-import {collection, getDocs, limit, orderBy, query, startAt, startAfter, where} from "firebase/firestore";
+import {collection, getDocs, limit, onSnapshot, orderBy, query, startAt, startAfter, Timestamp, where} from "firebase/firestore";
 import IsEmpty from "../helpers/IsEmpty";
 import update from "immutability-helper";
 import LinearProgress from "@mui/material/LinearProgress";
@@ -27,6 +27,7 @@ class Home extends PureComponent {
         const filter = params.get("filter") || "";
         const perPage = parseInt(params.get("perPage")) || 50;
         const page = parseInt(params.get("page")) || 1;
+        this.thirtyMinutesInMillis = 1000 * 60 * 30;
         this.statuses = {
             first: "sleep",
             second: "awake",
@@ -36,6 +37,7 @@ class Home extends PureComponent {
         this.state = {
             collection: collection(db, "pvks"),
             limit: limit(perPage),
+            listener: null,
             loading: false,
             modalDetail: false,
             data: [],
@@ -52,7 +54,11 @@ class Home extends PureComponent {
                 start_crunch: "",
                 end_crunch: "",
                 last_crunch: "",
-                output: []
+                output: [],
+                updated_at: {
+                    seconds: 0,
+                    nanoseconds: 0
+                }
             },
             lastData: {
                 id: 0,
@@ -61,7 +67,11 @@ class Home extends PureComponent {
                 start_crunch: "",
                 end_crunch: "",
                 last_crunch: "",
-                output: []
+                output: [],
+                updated_at: {
+                    seconds: 0,
+                    nanoseconds: 0
+                }
             }
         };
     }
@@ -76,15 +86,33 @@ class Home extends PureComponent {
         }
     }
 
-    getStatusText(status, output) {
-        if (output.length > 0) {
-            return <p className="m-0 fw-bold text-primary">Found</p>;
+    componentWillUnmount() {
+        if (!IsEmpty(this.state.listener)) this.state.listener();
+    }
+
+    isSleep(data) {
+        return Date.now() - (new Timestamp(data.updated_at.seconds, data.updated_at.nanoseconds)).toMillis() >= this.thirtyMinutesInMillis;
+    }
+
+    getStatusText(data) {
+        if (data.output.length > 0 && this.isSleep(data)) {
+            return <p className="m-0 fw-bold"><span className="text-primary">Found</span> & <span className="text-danger">Sleep</span></p>;
+        } else if (data.output.length > 0 && data.status === this.statuses.second) {
+            return <p className="m-0 fw-bold"><span className="text-primary">Found</span> & <span className="text-info">Awake</span></p>;
+        } else if (data.output.length > 0 && data.status === this.statuses.third) {
+            return <p className="m-0 fw-bold"><span className="text-primary">Found</span> & <span className="text-success">Done</span></p>;
+        } else if (data.output.length > 0) {
+            return <p className="m-0 fw-bold"><span className="text-primary">Found</span></p>;
+        } else if (this.isSleep(data) && data.status === this.statuses.third) {
+            return <p className="m-0 fw-bold"><span className="text-danger">Sleep</span> & <span className="text-success">Done</span></p>;
+        } else if (this.isSleep(data)) {
+            return <p className="m-0 fw-bold"><span className="text-danger">Sleep</span></p>;
+        } else if (data.status === this.statuses.third) {
+            return <p className="m-0 fw-bold"><span className="text-success">Done</span></p>;
+        } else if (data.status === this.statuses.second) {
+            return <p className="m-0 fw-bold"><span className="text-info">Awake</span></p>;
         } else {
-            if (status === this.statuses.first) return <p className="m-0 fw-bold text-danger">Sleep</p>;
-            else if (status === this.statuses.second) return <p className="m-0 fw-bold text-info">Awake</p>;
-            else if (status === this.statuses.third) return <p className="m-0 fw-bold text-success">Done</p>;
-            else if (status === this.statuses.fourth) return <p className="m-0 fw-bold text-primary">Found</p>;
-            else return <p className="m-0 fw-bold text-warning">Unknown Status</p>;
+            return <p className="m-0 fw-bold"><span className="text-warning">Unknown</span></p>;
         }
     }
 
@@ -115,6 +143,7 @@ class Home extends PureComponent {
                     this.setState({
                         loading: false
                     }, () => {
+                        window.alert("Wrong network, use Ropsten Network!");
                         ErrorNotDeployed(this.context.kaytrin, error);
                     });
                 }).finally(() => {});
@@ -130,18 +159,24 @@ class Home extends PureComponent {
     }
 
     getData() {
+        if (!IsEmpty(this.state.listener)) this.state.listener();
         this.setState({
-            loading: true
+            loading: true,
+            listener: null
         }, () => {
             let queryWhere = null;
             if (!IsEmpty(this.state.query.search)) {
                 queryWhere = where("domain", "==", this.state.query.search);
             } else if (!IsEmpty(this.state.query.filter)) {
-                if (this.state.query.filter === "found") queryWhere = where("output", "!=", []);
+                if (this.state.query.filter === this.statuses.first) queryWhere = where("updated_at", "<=", Timestamp.fromMillis(Date.now() - this.thirtyMinutesInMillis));
+                else if (this.state.query.filter === this.statuses.fourth) queryWhere = where("output", "!=", []);
                 else queryWhere = where("status", "==", this.state.query.filter);
             }
 
-            let queryOrderBy = orderBy(this.state.query.filter === this.statuses.fourth ? "output" : "id");
+            let queryOrderBy = null;
+            if (this.state.query.filter === this.statuses.first) queryOrderBy = orderBy("updated_at");
+            else if (this.state.query.filter === this.statuses.fourth) queryOrderBy = orderBy("output");
+            else queryOrderBy = orderBy("id");
 
             let queryStart = null;
             if (this.state.query.page === 1) queryStart = startAt(1);
@@ -152,9 +187,21 @@ class Home extends PureComponent {
             else queryString = query(this.state.collection, queryOrderBy, queryStart, this.state.limit);
 
             getDocs(queryString).then((snapshot) => {
-                const data = snapshot.docs.map(value => value.data());
                 this.setState({
-                    data: data
+                    data: []
+                }, () => {
+                    this.setState({
+                        data: snapshot.docs.map(value => value.data()),
+                        listener: onSnapshot(queryString, (snapshotListener) => {
+                            this.setState({
+                                data: []
+                            }, () => {
+                                this.setState({
+                                    data: snapshotListener.docs.map(value => value.data())
+                                });
+                            });
+                        })
+                    });
                 });
             }).catch((error) => {
                 console.error("getData", error.message);
@@ -267,7 +314,7 @@ class Home extends PureComponent {
                                         <p className="m-0 px-1">:</p>
                                     </td>
                                     <td valign="middle" className="p-0">
-                                        {this.getStatusText(this.state.dataDetail.status, this.state.dataDetail.output)}
+                                        {this.getStatusText(this.state.dataDetail)}
                                     </td>
                                 </tr>
                                 <tr>
@@ -311,8 +358,8 @@ class Home extends PureComponent {
                                         <p className="m-0 px-1">:</p>
                                     </td>
                                     <td valign="middle" className="p-0">
-                                        {this.state.dataDetail.output.length > 0 ? this.state.dataDetail.output.map(value => (
-                                            <p className="m-0">{value}</p>
+                                        {this.state.dataDetail.output.length > 0 ? this.state.dataDetail.output.map((value, index) => (
+                                            <p key={index} className="m-0">{value}</p>
                                         )) : <p className="m-0">-</p>}
                                     </td>
                                 </tr>
@@ -367,7 +414,7 @@ class Home extends PureComponent {
                             <div className="row">
                                 {this.state.data.map((value, index, array) => (
                                     <div key={index} className="col-12 col-sm-6 col-md-6 col-lg-3 col-xl-3">
-                                        <div className="rounded box-shadow-primary bgc-white-opacity-95 table-responsive p-3 mt-3">
+                                        <div className="small rounded box-shadow-primary bgc-white-opacity-95 table-responsive p-3 mt-3">
                                             <table className="table table-borderless m-0">
                                                 <tbody>
                                                     <tr>
@@ -389,7 +436,7 @@ class Home extends PureComponent {
                                                             <p className="m-0 px-1">:</p>
                                                         </td>
                                                         <td valign="middle" className="p-0">
-                                                            {this.getStatusText(value.status, value.output)}
+                                                            {this.getStatusText(value)}
                                                         </td>
                                                     </tr>
                                                 </tbody>
@@ -399,7 +446,7 @@ class Home extends PureComponent {
                                                     <button className="btn btn-sm btn-secondary w-100" onClick={(event) => this.setValue("dataDetail", value, () => this.setValue("modalDetail", true))}>Info</button>
                                                 </div>
                                                 <div className="col-12 col-sm-12 col-md-6 col-lg-6 col-xl-6 mt-2 mt-sm-2 mt-md-0 mt-lg-0 mt-xl-0">
-                                                    <button className="btn btn-sm bgc-1C152D text-white w-100" onClick={(event) => this.awake(value)} disabled={value.status !== this.statuses.first}>Awake</button>
+                                                    <button className="btn btn-sm bgc-1C152D text-white w-100" onClick={(event) => this.awake(value)} disabled={!this.isSleep(value)}>Awake</button>
                                                 </div>
                                             </div>
                                         </div>
