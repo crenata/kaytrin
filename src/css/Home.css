@@ -4,3 +4,6 @@
 .data-detail * {
     font-family: "Merienda", cursive;
 }
+.modal-add-fields {
+    max-height: 65vh;
+}

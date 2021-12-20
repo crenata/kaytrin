@@ -5,7 +5,7 @@ import {collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy,
 import IsEmpty from "../helpers/IsEmpty";
 import IsEmail from "../helpers/IsEmail";
 import update from "immutability-helper";
-import {Collapse, FormControl, InputLabel, LinearProgress, MenuItem, Select, TablePagination, TextField} from "@mui/material";
+import {Chip, Collapse, Divider, FormControl, InputLabel, LinearProgress, MenuItem, Select, TablePagination, TextField} from "@mui/material";
 import LoadingButton from "@mui/lab/LoadingButton";
 import {Modal} from "react-bootstrap";
 import Template from "../template/Template";
@@ -29,6 +29,20 @@ class Home extends PureComponent {
             second: "awake",
             third: "done",
             fourth: "found",
+        };
+        this.addFields = {
+            email: "",
+            domain: "",
+            start_crunch: "",
+            end_crunch: "",
+            last_crunch: ""
+        };
+        this.addErrorFields = {
+            email: false,
+            domain: false,
+            start_crunch: false,
+            end_crunch: false,
+            last_crunch: false
         };
         this.state = {
             collection: collection(db, "pvks"),
@@ -73,20 +87,8 @@ class Home extends PureComponent {
                     nanoseconds: 0
                 }
             },
-            add: {
-                email: "",
-                domain: "",
-                start_crunch: "",
-                end_crunch: "",
-                last_crunch: ""
-            },
-            addError: {
-                email: false,
-                domain: false,
-                start_crunch: false,
-                end_crunch: false,
-                last_crunch: false
-            },
+            add: [this.addFields],
+            addError: [this.addErrorFields],
             edit: {
                 email: "",
                 start_crunch: "",
@@ -198,101 +200,104 @@ class Home extends PureComponent {
         });
     }
     awake(data) {
-        this.verifyOwner().then((result) => {
-            let goto = document.createElement("a");
-            goto.href = process.env.REACT_APP_AWAKE_URL.replace("{domain}", data.domain).replace("{last_crunch}", data.last_crunch).replace("{end_crunch}", data.end_crunch);
-            goto.target = "_blank";
-            goto.click();
-            goto.remove();
-        });
+        if (data.status === this.statuses.zero || this.isSleep(data)) {
+            this.verifyOwner().then((result) => {
+                let goto = document.createElement("a");
+                goto.href = process.env.REACT_APP_AWAKE_URL.replace("{domain}", data.domain).replace("{last_crunch}", data.last_crunch).replace("{end_crunch}", data.end_crunch);
+                goto.target = "_blank";
+                goto.click();
+                goto.remove();
+            });
+        } else {
+            window.alert("This domain isn't sleep!");
+        }
     }
     add() {
+        let emptyErrors = [];
+        this.state.add.forEach((value, index, array) => {
+            emptyErrors.push(this.addErrorFields);
+        });
         this.setState({
-            addError: {
-                email: false,
-                domain: false,
-                start_crunch: false,
-                end_crunch: false,
-                last_crunch: false
-            }
+            addError: emptyErrors
         }, () => {
-            let errorEmail = false;
-            let errorDomain = false;
-            let errorStartCrunch = false;
-            let errorEndCrunch = false;
-            let errorLastCrunch = false;
-            if (IsEmpty(this.state.add.email)) errorEmail = true;
-            else if (!IsEmail(this.state.add.email)) errorEmail = true;
-            if (IsEmpty(this.state.add.domain)) errorDomain = true;
-            if (IsEmpty(this.state.add.start_crunch)) errorStartCrunch = true;
-            if (IsEmpty(this.state.add.end_crunch)) errorEndCrunch = true;
-            if (IsEmpty(this.state.add.last_crunch)) errorLastCrunch = true;
-            if (!errorEmail && !errorDomain && !errorStartCrunch && !errorEndCrunch && !errorLastCrunch) {
-                this.verifyOwner().then((result) => {
-                    getDoc(doc(db, "pvks", this.state.add.domain)).then((data) => {
-                        if (IsEmpty(data.data())) {
-                            this.getLastData((lastData, error) => {
-                                if (!IsEmpty(lastData)) {
-                                    setDoc(doc(db, "pvks", this.state.add.domain), {
-                                        id: lastData.id + 1,
-                                        email: this.state.add.email,
-                                        domain: this.state.add.domain,
-                                        start_crunch: this.state.add.start_crunch,
-                                        end_crunch: this.state.add.end_crunch,
-                                        last_crunch: this.state.add.last_crunch,
-                                        output: [],
-                                        status: this.statuses.zero,
-                                        updated_at: Timestamp.now()
-                                    }).then((data) => {
-                                        this.setState({
-                                            modalAdd: false,
-                                            add: {
-                                                email: "",
-                                                domain: "",
-                                                start_crunch: "",
-                                                end_crunch: "",
-                                                last_crunch: ""
+            let tempErrors = [];
+            this.state.add.forEach((value, index, array) => {
+                let errorEmail = IsEmpty(value.email) || !IsEmail(value.email);
+                let errorDomain = IsEmpty(value.domain);
+                let errorStartCrunch = IsEmpty(value.start_crunch);
+                let errorEndCrunch = IsEmpty(value.end_crunch);
+                let errorLastCrunch = IsEmpty(value.last_crunch);
+                tempErrors.push({
+                    email: errorEmail,
+                    domain: errorDomain,
+                    start_crunch: errorStartCrunch,
+                    end_crunch: errorEndCrunch,
+                    last_crunch: errorLastCrunch
+                });
+                if (!errorEmail && !errorDomain && !errorStartCrunch && !errorEndCrunch && !errorLastCrunch) {
+                    this.verifyOwner().then((result) => {
+                        getDoc(doc(db, "pvks", value.domain)).then((data) => {
+                            if (IsEmpty(data.data())) {
+                                this.getLastData((lastData, error) => {
+                                    if (!IsEmpty(lastData)) {
+                                        setDoc(doc(db, "pvks", value.domain), {
+                                            id: lastData.id + 1,
+                                            email: value.email,
+                                            domain: value.domain,
+                                            start_crunch: value.start_crunch,
+                                            end_crunch: value.end_crunch,
+                                            last_crunch: value.last_crunch,
+                                            output: [],
+                                            status: this.statuses.zero,
+                                            updated_at: Timestamp.now()
+                                        }).then((data) => {
+                                            if (this.state.add.length > 1) {
+                                                this.setState({
+                                                    add: update(this.state.add, {
+                                                        $splice: [[index, 1]]
+                                                    }),
+                                                    addError: update(this.state.addError, {
+                                                        $splice: [[index, 1]]
+                                                    })
+                                                });
+                                            } else {
+                                                this.setState({
+                                                    add: [this.addFields],
+                                                    modalAdd: false
+                                                });
                                             }
-                                        }, () => {
                                             this.props.navigate(Config.Links.Home);
+                                        }).catch((error) => {
+                                            window.alert("Whoops, something went wrong!");
+                                        }).finally(() => {
+                                            this.setState({
+                                                loading: false
+                                            });
                                         });
-                                    }).catch((error) => {
+                                    } else {
                                         window.alert("Whoops, something went wrong!");
-                                    }).finally(() => {
-                                        this.setState({
-                                            loading: false
-                                        });
-                                    });
-                                } else {
-                                    window.alert("Whoops, something went wrong!");
-                                }
-                            });
-                        } else {
+                                    }
+                                });
+                            } else {
+                                this.setState({
+                                    loading: false
+                                }, () => {
+                                    window.alert(`${value.domain} domain already exists!`);
+                                });
+                            }
+                        }).catch((error) => {
                             this.setState({
                                 loading: false
                             }, () => {
-                                window.alert("Domain already exists!");
+                                window.alert("Whoops, something went wrong!");
                             });
-                        }
-                    }).catch((error) => {
-                        this.setState({
-                            loading: false
-                        }, () => {
-                            window.alert("Whoops, something went wrong!");
-                        });
-                    }).finally(() => {});
-                });
-            } else {
-                this.setState({
-                    addError: {
-                        email: errorEmail,
-                        domain: errorDomain,
-                        start_crunch: errorStartCrunch,
-                        end_crunch: errorEndCrunch,
-                        last_crunch: errorLastCrunch
-                    }
-                });
-            }
+                        }).finally(() => {});
+                    });
+                }
+            });
+            this.setState({
+                addError: tempErrors
+            });
         });
     }
     edit() {
@@ -697,58 +702,93 @@ class Home extends PureComponent {
                 <Modal size={"xl"} show={this.state.modalAdd} onHide={() => this.setValue("modalAdd", false)}>
                     <Modal.Body className="data-detail">
                         <h6 className="m-0">Add New Domain</h6>
+                        <div className="modal-add-fields overflow-auto">
+                            {this.state.add.map((value, index, array) => (
+                                <div className="mt-3" key={index}>
+                                    <Divider>
+                                        <Chip label={`Item ${index + 1}`} />
+                                    </Divider>
+                                    <TextField
+                                        type={"email"}
+                                        label="Email *"
+                                        size={"small"}
+                                        className="w-100 mt-3"
+                                        error={this.state.addError[index].email}
+                                        value={value.email}
+                                        onChange={(event) => this.setValue("add", update(this.state.add, {
+                                            [index]: {
+                                                email: {$set: event.target.value}
+                                            }
+                                        }))}
+                                    />
+                                    <TextField
+                                        label="Domain *"
+                                        size={"small"}
+                                        className="w-100 mt-3"
+                                        error={this.state.addError[index].domain}
+                                        value={value.domain}
+                                        onChange={(event) => this.setValue("add", update(this.state.add, {
+                                            [index]: {
+                                                domain: {$set: event.target.value}
+                                            }
+                                        }))}
+                                    />
+                                    <TextField
+                                        label="Start Crunch *"
+                                        size={"small"}
+                                        className="w-100 mt-3"
+                                        error={this.state.addError[index].start_crunch}
+                                        value={value.start_crunch}
+                                        onChange={(event) => this.setValue("add", update(this.state.add, {
+                                            [index]: {
+                                                start_crunch: {$set: event.target.value}
+                                            }
+                                        }))}
+                                    />
+                                    <TextField
+                                        label="End Crunch *"
+                                        size={"small"}
+                                        className="w-100 mt-3"
+                                        error={this.state.addError[index].end_crunch}
+                                        value={value.end_crunch}
+                                        onChange={(event) => this.setValue("add", update(this.state.add, {
+                                            [index]: {
+                                                end_crunch: {$set: event.target.value}
+                                            }
+                                        }))}
+                                    />
+                                    <TextField
+                                        label="Last Crunch *"
+                                        size={"small"}
+                                        className="w-100 mt-3"
+                                        error={this.state.addError[index].last_crunch}
+                                        value={value.last_crunch}
+                                        onChange={(event) => this.setValue("add", update(this.state.add, {
+                                            [index]: {
+                                                last_crunch: {$set: event.target.value}
+                                            }
+                                        }))}
+                                    />
+                                    {this.state.add.length > 1 && <button className="btn btn-sm btn-danger px-4 mt-3" onClick={(event) => this.setState({
+                                        add: update(this.state.add, {
+                                            $splice: [[index, 1]]
+                                        }),
+                                        addError: update(this.state.addError, {
+                                            $splice: [[index, 1]]
+                                        })
+                                    })}>-Delete</button>}
+                                </div>
+                            ))}
+                        </div>
                         <div className="mt-3">
-                            <TextField
-                                type={"email"}
-                                label="Email *"
-                                size={"small"}
-                                className="w-100"
-                                error={this.state.addError.email}
-                                value={this.state.add.email}
-                                onChange={(event) => this.setValue("add", update(this.state.add, {
-                                    email: {$set: event.target.value}
-                                }))}
-                            />
-                            <TextField
-                                label="Domain *"
-                                size={"small"}
-                                className="w-100 mt-3"
-                                error={this.state.addError.domain}
-                                value={this.state.add.domain}
-                                onChange={(event) => this.setValue("add", update(this.state.add, {
-                                    domain: {$set: event.target.value}
-                                }))}
-                            />
-                            <TextField
-                                label="Start Crunch *"
-                                size={"small"}
-                                className="w-100 mt-3"
-                                error={this.state.addError.start_crunch}
-                                value={this.state.add.start_crunch}
-                                onChange={(event) => this.setValue("add", update(this.state.add, {
-                                    start_crunch: {$set: event.target.value}
-                                }))}
-                            />
-                            <TextField
-                                label="End Crunch *"
-                                size={"small"}
-                                className="w-100 mt-3"
-                                error={this.state.addError.end_crunch}
-                                value={this.state.add.end_crunch}
-                                onChange={(event) => this.setValue("add", update(this.state.add, {
-                                    end_crunch: {$set: event.target.value}
-                                }))}
-                            />
-                            <TextField
-                                label="Last Crunch *"
-                                size={"small"}
-                                className="w-100 mt-3"
-                                error={this.state.addError.last_crunch}
-                                value={this.state.add.last_crunch}
-                                onChange={(event) => this.setValue("add", update(this.state.add, {
-                                    last_crunch: {$set: event.target.value}
-                                }))}
-                            />
+                            <button className="btn btn-sm text-white bgc-1F1E30 px-4" onClick={(event) => this.setState({
+                                add: update(this.state.add, {
+                                    $push: [this.addFields]
+                                }),
+                                addError: update(this.state.addError, {
+                                    $push: [this.addErrorFields]
+                                })
+                            })}>+Add</button>
                         </div>
                         <div className="text-center mt-5">
                             <button className="btn btn-sm text-white bgc-1F1E30 px-4" onClick={(event) => this.setValue("modalAdd", false)}>Close</button>
