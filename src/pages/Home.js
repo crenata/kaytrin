@@ -29,24 +29,45 @@ class Home extends PureComponent {
             second: "awake",
             third: "done",
             fourth: "found",
+            fifth: "suspend",
+        };
+        this.protocols = {
+            first: "https",
+            second: "http"
+        };
+        this.platforms = {
+            first: {
+                value: "Heroku",
+                domain: "herokuapp.com"
+            },
+            second: {
+                value: "Evennode",
+                domain: "ap-1.evennode.com"
+            }
         };
         this.addFields = {
             email: "",
+            protocol: "",
             domain: "",
+            platform: "",
+            platform_domain: "",
             start_crunch: "",
             end_crunch: "",
             last_crunch: ""
         };
-        this.addErrorFields = {
+        this.errorFields = {
             email: false,
+            protocol: false,
             domain: false,
+            platform: false,
+            platform_domain: false,
             start_crunch: false,
             end_crunch: false,
-            last_crunch: false
+            last_crunch: false,
+            status: false
         };
         this.state = {
             collection: collection(db, "pvks"),
-            limit: limit(perPage),
             listener: null,
             loading: false,
             canSeeOutput: false,
@@ -63,7 +84,11 @@ class Home extends PureComponent {
             },
             dataDetail: {
                 id: 0,
+                email: "",
+                protocol: "",
                 domain: "",
+                platform: "",
+                platform_domain: "",
                 status: "",
                 start_crunch: "",
                 end_crunch: "",
@@ -76,7 +101,11 @@ class Home extends PureComponent {
             },
             lastData: {
                 id: 0,
+                email: "",
+                protocol: "",
                 domain: "",
+                platform: "",
+                platform_domain: "",
                 status: "",
                 start_crunch: "",
                 end_crunch: "",
@@ -88,19 +117,19 @@ class Home extends PureComponent {
                 }
             },
             add: [this.addFields],
-            addError: [this.addErrorFields],
+            addError: [this.errorFields],
             edit: {
                 email: "",
+                protocol: "",
+                domain: "",
+                platform: "",
+                platform_domain: "",
                 start_crunch: "",
                 end_crunch: "",
-                last_crunch: ""
+                last_crunch: "",
+                status: ""
             },
-            editError: {
-                email: false,
-                start_crunch: false,
-                end_crunch: false,
-                last_crunch: false
-            },
+            editError: this.errorFields,
             delete: "",
             deleteError: false
         };
@@ -124,6 +153,8 @@ class Home extends PureComponent {
     getStatusText(data) {
         if (data.status === this.statuses.zero) {
             return <p className="m-0 fw-bold"><span className="text-warning">Not Deployed</span></p>;
+        } else if (data.status === this.statuses.fifth) {
+            return <p className="m-0 fw-bold"><span className="text-danger">Suspend</span></p>;
         } else if (data.output.length > 0 && this.isSleep(data)) {
             return <p className="m-0 fw-bold"><span className="text-primary">Found</span> & <span className="text-danger">Sleep</span></p>;
         } else if (data.output.length > 0 && data.status === this.statuses.second) {
@@ -185,7 +216,44 @@ class Home extends PureComponent {
             if (callback && typeof callback === "function") callback();
         });
     }
+    platformSearchObject = (value) => {
+        return Object.keys(this.platforms).find(key => this.platforms[key].value === value);
+    };
 
+    reMigrate() {
+        this.verifyOwner().then((result) => {
+            getDocs(this.state.collection).then((snapshot) => {
+                const data = snapshot.docs.map(value => value.data());
+                data.forEach((value, index, array) => {
+                    setDoc(doc(db, "pvks", value.id.toString()), {
+                        id: value.id,
+                        email: value.email,
+                        protocol: this.protocols.first,
+                        domain: value.domain,
+                        platform: this.platforms.first.value,
+                        platform_domain: this.platforms.first.domain,
+                        start_crunch: value.start_crunch,
+                        end_crunch: value.end_crunch,
+                        last_crunch: value.last_crunch,
+                        output: value.output,
+                        status: value.status,
+                        updated_at: value.updated_at
+                    }).then((result) => {
+                        deleteDoc(doc(db, "pvks", value.domain)).then((data) => {
+                            console.log("reMigrate/migrated", value.id);
+                        }).catch((error) => {
+                            console.error("reMigrate/deleteData", value.id, error.message);
+                        }).finally(() => {});
+                    }).catch((error) => {
+                        console.error("reMigrate/addData", value.id, error.message);
+                    }).finally(() => {});
+                });
+                this.setValue("loading", false);
+            }).catch((error) => {
+                console.error("reMigrate/getData", error.message);
+            }).finally(() => {});
+        });
+    }
     seeOutput() {
         this.verifyOwner().then((result) => {
             this.setState({
@@ -203,19 +271,24 @@ class Home extends PureComponent {
         if (data.status === this.statuses.zero || this.isSleep(data)) {
             this.verifyOwner().then((result) => {
                 let goto = document.createElement("a");
-                goto.href = process.env.REACT_APP_AWAKE_URL.replace("{domain}", data.domain).replace("{last_crunch}", data.last_crunch).replace("{end_crunch}", data.end_crunch);
+                goto.href = process.env.REACT_APP_AWAKE_URL
+                    .replace("{protocol}", data.protocol)
+                    .replace("{domain}", data.domain)
+                    .replace("{platform_domain}", data.platform_domain)
+                    .replace("{last_crunch}", data.last_crunch)
+                    .replace("{end_crunch}", data.end_crunch);
                 goto.target = "_blank";
                 goto.click();
                 goto.remove();
             });
         } else {
-            window.alert("This domain isn't sleep!");
+            window.alert(`${data.domain} domain isn't sleep!`);
         }
     }
     add() {
         let emptyErrors = [];
         this.state.add.forEach((value, index, array) => {
-            emptyErrors.push(this.addErrorFields);
+            emptyErrors.push(this.errorFields);
         });
         this.setState({
             addError: emptyErrors
@@ -223,60 +296,62 @@ class Home extends PureComponent {
             let tempErrors = [];
             this.state.add.forEach((value, index, array) => {
                 let errorEmail = IsEmpty(value.email) || !IsEmail(value.email);
+                let errorProtocol = IsEmpty(value.protocol);
                 let errorDomain = IsEmpty(value.domain);
+                let errorPlatform = IsEmpty(value.platform);
+                let errorPlatformDomain = IsEmpty(value.platform_domain);
                 let errorStartCrunch = IsEmpty(value.start_crunch);
                 let errorEndCrunch = IsEmpty(value.end_crunch);
                 let errorLastCrunch = IsEmpty(value.last_crunch);
                 tempErrors.push({
                     email: errorEmail,
+                    protocol: errorProtocol,
                     domain: errorDomain,
+                    platform: errorPlatform,
+                    platform_domain: errorPlatformDomain,
                     start_crunch: errorStartCrunch,
                     end_crunch: errorEndCrunch,
                     last_crunch: errorLastCrunch
                 });
-                if (!errorEmail && !errorDomain && !errorStartCrunch && !errorEndCrunch && !errorLastCrunch) {
+                if (!errorEmail && !errorProtocol && !errorDomain && !errorPlatform && !errorPlatformDomain && !errorStartCrunch && !errorEndCrunch && !errorLastCrunch) {
                     this.verifyOwner().then((result) => {
                         getDoc(doc(db, "pvks", value.domain)).then((data) => {
                             if (IsEmpty(data.data())) {
-                                this.getLastData((lastData, error) => {
-                                    if (!IsEmpty(lastData)) {
-                                        setDoc(doc(db, "pvks", value.domain), {
-                                            id: lastData.id + 1,
-                                            email: value.email,
-                                            domain: value.domain,
-                                            start_crunch: value.start_crunch,
-                                            end_crunch: value.end_crunch,
-                                            last_crunch: value.last_crunch,
-                                            output: [],
-                                            status: this.statuses.zero,
-                                            updated_at: Timestamp.now()
-                                        }).then((data) => {
-                                            if (this.state.add.length > 1) {
-                                                this.setState({
-                                                    add: update(this.state.add, {
-                                                        $splice: [[index, 1]]
-                                                    }),
-                                                    addError: update(this.state.addError, {
-                                                        $splice: [[index, 1]]
-                                                    })
-                                                });
-                                            } else {
-                                                this.setState({
-                                                    add: [this.addFields],
-                                                    modalAdd: false
-                                                });
-                                            }
-                                            this.props.navigate(Config.Links.Home);
-                                        }).catch((error) => {
-                                            window.alert("Whoops, something went wrong!");
-                                        }).finally(() => {
-                                            this.setState({
-                                                loading: false
-                                            });
+                                let dataId = this.state.lastData.id + index + 1;
+                                setDoc(doc(db, "pvks", dataId.toString()), {
+                                    id: dataId,
+                                    email: value.email,
+                                    protocol: value.protocol,
+                                    domain: value.domain,
+                                    platform: value.platform,
+                                    platform_domain: value.platform_domain,
+                                    start_crunch: value.start_crunch,
+                                    end_crunch: value.end_crunch,
+                                    last_crunch: value.last_crunch,
+                                    output: [],
+                                    status: this.statuses.zero,
+                                    updated_at: Timestamp.now()
+                                }).then((data) => {
+                                    if (this.state.add.length > 1) {
+                                        this.setState({
+                                            add: update(this.state.add, {
+                                                $splice: [[index, 1]]
+                                            }),
+                                            addError: update(this.state.addError, {
+                                                $splice: [[index, 1]]
+                                            })
                                         });
                                     } else {
-                                        window.alert("Whoops, something went wrong!");
+                                        this.setState({
+                                            add: [this.addFields],
+                                            modalAdd: false
+                                        });
                                     }
+                                    this.props.navigate(Config.Links.Home);
+                                }).catch((error) => {
+                                    window.alert("Whoops, something went wrong!");
+                                }).finally(() => {
+                                    this.setValue("loading", false);
                                 });
                             } else {
                                 this.setState({
@@ -297,34 +372,45 @@ class Home extends PureComponent {
             });
             this.setState({
                 addError: tempErrors
-            });
+            }, () => this.getLastData());
         });
     }
     edit() {
+        let data = this.state.edit;
         this.setState({
-            editError: {
-                email: false,
-                start_crunch: false,
-                end_crunch: false,
-                last_crunch: false
-            }
+            editError: this.errorFields
         }, () => {
-            let errorEmail = false;
-            let errorStartCrunch = false;
-            let errorEndCrunch = false;
-            let errorLastCrunch = false;
-            if (IsEmpty(this.state.edit.email)) errorEmail = true;
-            else if (!IsEmail(this.state.edit.email)) errorEmail = true;
-            if (IsEmpty(this.state.edit.start_crunch)) errorStartCrunch = true;
-            if (IsEmpty(this.state.edit.end_crunch)) errorEndCrunch = true;
-            if (IsEmpty(this.state.edit.last_crunch)) errorLastCrunch = true;
-            if (!errorStartCrunch && !errorEndCrunch && !errorLastCrunch) {
+            let errorEmail = IsEmpty(data.email) || !IsEmail(data.email);
+            let errorProtocol = IsEmpty(data.protocol);
+            let errorDomain = IsEmpty(data.domain);
+            let errorPlatform = IsEmpty(data.platform);
+            let errorPlatformDomain = IsEmpty(data.platform_domain);
+            let errorStartCrunch = IsEmpty(data.start_crunch);
+            let errorEndCrunch = IsEmpty(data.end_crunch);
+            let errorLastCrunch = IsEmpty(data.last_crunch);
+            let errorStatus = IsEmpty(data.status);
+            if (
+                !errorEmail &&
+                !errorProtocol &&
+                !errorDomain &&
+                !errorPlatform &&
+                !errorPlatformDomain &&
+                !errorStartCrunch &&
+                !errorEndCrunch &&
+                !errorLastCrunch &&
+                !errorStatus
+            ) {
                 this.verifyOwner().then((result) => {
-                    updateDoc(doc(db, "pvks", this.state.dataDetail.domain), {
-                        email: this.state.edit.email,
-                        start_crunch: this.state.edit.start_crunch,
-                        end_crunch: this.state.edit.end_crunch,
-                        last_crunch: this.state.edit.last_crunch
+                    updateDoc(doc(db, "pvks", this.state.dataDetail.id.toString()), {
+                        email: data.email,
+                        protocol: data.protocol,
+                        domain: data.domain,
+                        platform: data.platform,
+                        platform_domain: data.platform_domain,
+                        start_crunch: data.start_crunch,
+                        end_crunch: data.end_crunch,
+                        last_crunch: data.last_crunch,
+                        status: data.status
                     }).then((data) => {
                         this.setValue("editing", false);
                     }).catch((error) => {
@@ -337,9 +423,14 @@ class Home extends PureComponent {
                 this.setState({
                     editError: {
                         email: errorEmail,
+                        protocol: errorProtocol,
+                        domain: errorDomain,
+                        platform: errorPlatform,
+                        platform_domain: errorPlatformDomain,
                         start_crunch: errorStartCrunch,
                         end_crunch: errorEndCrunch,
-                        last_crunch: errorLastCrunch
+                        last_crunch: errorLastCrunch,
+                        status: errorStatus
                     }
                 });
             }
@@ -351,7 +442,7 @@ class Home extends PureComponent {
         }, () => {
             if (!IsEmpty(this.state.delete) && this.state.delete === this.state.dataDetail.domain) {
                 this.verifyOwner().then((result) => {
-                    deleteDoc(doc(db, "pvks", this.state.dataDetail.domain)).then((data) => {
+                    deleteDoc(doc(db, "pvks", this.state.dataDetail.id.toString())).then((data) => {
                         this.setState({
                             deleting: false,
                             modalDetail: false,
@@ -387,12 +478,14 @@ class Home extends PureComponent {
                 else queryWhere = where("domain", "==", this.state.query.search);
             } else if (!IsEmpty(this.state.query.filter)) {
                 if (this.state.query.filter === this.statuses.first) queryWhere = where("updated_at", "<=", Timestamp.fromMillis(Date.now() - this.thirtyMinutesInMillis));
+                else if (this.state.query.filter === this.statuses.second) queryWhere = where("updated_at", ">", Timestamp.fromMillis(Date.now() - this.thirtyMinutesInMillis));
                 else if (this.state.query.filter === this.statuses.fourth) queryWhere = where("output", "!=", []);
                 else queryWhere = where("status", "==", this.state.query.filter);
             }
 
             let queryOrderBy = null;
             if (this.state.query.filter === this.statuses.first) queryOrderBy = orderBy("updated_at");
+            else if (this.state.query.filter === this.statuses.second) queryOrderBy = orderBy("updated_at");
             else if (this.state.query.filter === this.statuses.fourth) queryOrderBy = orderBy("output");
             else queryOrderBy = orderBy("id");
 
@@ -400,9 +493,11 @@ class Home extends PureComponent {
             if (this.state.query.page === 1) queryStart = startAt(1);
             else queryStart = startAfter((this.state.query.page - 1) * this.state.query.perPage);
 
+            let queryLimit = limit(this.state.query.perPage);
+
             let queryString = null;
-            if (!IsEmpty(this.state.query.search) || !IsEmpty(this.state.query.filter)) queryString = query(this.state.collection, queryWhere, queryOrderBy, queryStart, this.state.limit);
-            else queryString = query(this.state.collection, queryOrderBy, queryStart, this.state.limit);
+            if (!IsEmpty(this.state.query.search) || !IsEmpty(this.state.query.filter)) queryString = query(this.state.collection, queryWhere, queryOrderBy, queryStart, queryLimit);
+            else queryString = query(this.state.collection, queryOrderBy, queryStart, queryLimit);
 
             getDocs(queryString).then((snapshot) => {
                 this.setState({
@@ -418,7 +513,7 @@ class Home extends PureComponent {
                                     data: snapshotListener.docs.map(value => value.data())
                                 }, () => {
                                     if (this.state.modalDetail) {
-                                        let find = snapshotListener.docs.find(value => value.id === this.state.dataDetail.domain);
+                                        let find = snapshotListener.docs.find(value => value.id.toString() === this.state.dataDetail.id.toString());
                                         if (!IsEmpty(find)) this.setState({
                                             dataDetail: find.data()
                                         });
@@ -494,7 +589,7 @@ class Home extends PureComponent {
                     editing: false
                 })}>
                     <Modal.Body className="data-detail">
-                        <div className="table-responsive pb-2 pb-sm-2 pb-md-0 pb-lg-0 pb-xl-0">
+                        <div className="small table-responsive pb-2 pb-sm-2 pb-md-0 pb-lg-0 pb-xl-0">
                             <table className="table table-borderless w-auto m-0">
                                 <tbody>
                                 <tr>
@@ -521,6 +616,17 @@ class Home extends PureComponent {
                                 </tr>
                                 <tr>
                                     <td valign="middle" className="p-0">
+                                        <p className="m-0">Protocol</p>
+                                    </td>
+                                    <td valign="middle" className="p-0">
+                                        <p className="m-0 px-1">:</p>
+                                    </td>
+                                    <td valign="middle" className="p-0">
+                                        <p className="m-0">{this.state.dataDetail.protocol}</p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td valign="middle" className="p-0">
                                         <p className="m-0">Domain</p>
                                     </td>
                                     <td valign="middle" className="p-0">
@@ -528,6 +634,28 @@ class Home extends PureComponent {
                                     </td>
                                     <td valign="middle" className="p-0">
                                         <p className="m-0">{this.state.dataDetail.domain}</p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td valign="middle" className="p-0">
+                                        <p className="m-0">Platform</p>
+                                    </td>
+                                    <td valign="middle" className="p-0">
+                                        <p className="m-0 px-1">:</p>
+                                    </td>
+                                    <td valign="middle" className="p-0">
+                                        <p className="m-0">{this.state.dataDetail.platform}</p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td valign="middle" className="p-0">
+                                        <p className="m-0">Platform Domain</p>
+                                    </td>
+                                    <td valign="middle" className="p-0">
+                                        <p className="m-0 px-1">:</p>
+                                    </td>
+                                    <td valign="middle" className="p-0">
+                                        <p className="m-0">{this.state.dataDetail.platform_domain}</p>
                                     </td>
                                 </tr>
                                 <tr>
@@ -612,6 +740,57 @@ class Home extends PureComponent {
                                         email: {$set: event.target.value}
                                     }))}
                                 />
+                                <FormControl fullWidth size={"small"} className="mt-3">
+                                    <InputLabel id="edit-protocol">Protocol *</InputLabel>
+                                    <Select
+                                        labelId="edit-protocol"
+                                        value={this.state.edit.protocol}
+                                        onChange={(event) => this.setValue("edit", update(this.state.edit, {
+                                            protocol: {$set: event.target.value}
+                                        }))}
+                                        defaultValue={this.protocols.first}
+                                    >
+                                        <MenuItem value={this.protocols.first}>HTTPS</MenuItem>
+                                        <MenuItem value={this.protocols.second}>HTTP</MenuItem>
+                                    </Select>
+                                </FormControl>
+                                <TextField
+                                    label="Domain *"
+                                    size={"small"}
+                                    className="w-100 mt-3"
+                                    error={this.state.editError.domain}
+                                    value={this.state.edit.domain}
+                                    onChange={(event) => this.setValue("edit", update(this.state.edit, {
+                                        domain: {$set: event.target.value}
+                                    }))}
+                                />
+                                <FormControl fullWidth size={"small"} className="mt-3">
+                                    <InputLabel id="edit-platform">Platform *</InputLabel>
+                                    <Select
+                                        labelId="edit-platform"
+                                        error={this.state.editError.platform}
+                                        value={this.state.edit.platform}
+                                        onChange={(event) => this.setValue("edit", update(this.state.edit, {
+                                            platform: {$set: event.target.value},
+                                            platform_domain: {$set: this.platforms[this.platformSearchObject(event.target.value)].domain}
+                                        }))}
+                                        defaultValue={this.platforms.first.value}
+                                    >
+                                        <MenuItem value={this.platforms.first.value}>{this.platforms.first.value}</MenuItem>
+                                        <MenuItem value={this.platforms.second.value}>{this.platforms.second.value}</MenuItem>
+                                    </Select>
+                                </FormControl>
+                                <TextField
+                                    label="Platform Domain *"
+                                    size={"small"}
+                                    className="w-100 mt-3"
+                                    error={this.state.editError.platform_domain}
+                                    value={this.state.edit.platform_domain}
+                                    /*onChange={(event) => this.setValue("edit", update(this.state.edit, {
+                                        platform_domain: {$set: event.target.value}
+                                    }))}*/
+                                    disabled
+                                />
                                 <TextField
                                     label="Start Crunch *"
                                     size={"small"}
@@ -642,6 +821,24 @@ class Home extends PureComponent {
                                         last_crunch: {$set: event.target.value}
                                     }))}
                                 />
+                                <FormControl fullWidth size={"small"} className="mt-3">
+                                    <InputLabel id="edit-status">Status *</InputLabel>
+                                    <Select
+                                        labelId="edit-status"
+                                        value={this.state.edit.status}
+                                        onChange={(event) => this.setValue("edit", update(this.state.edit, {
+                                            status: {$set: event.target.value}
+                                        }))}
+                                        defaultValue={this.statuses.zero}
+                                    >
+                                        <MenuItem value={this.statuses.zero}>Not Deployed</MenuItem>
+                                        <MenuItem value={this.statuses.first}>Sleep</MenuItem>
+                                        <MenuItem value={this.statuses.second}>Awake</MenuItem>
+                                        <MenuItem value={this.statuses.third}>Done</MenuItem>
+                                        <MenuItem value={this.statuses.fourth}>Found</MenuItem>
+                                        <MenuItem value={this.statuses.fifth}>Suspend</MenuItem>
+                                    </Select>
+                                </FormControl>
                             </Collapse>
                         </div>
                         <div className="mt-3">
@@ -671,12 +868,7 @@ class Home extends PureComponent {
                                 <button className="btn btn-sm text-white bgc-FFA500 px-4" onClick={(event) => this.setState({
                                     editing: true,
                                     deleting: false,
-                                    edit: {
-                                        email: this.state.dataDetail.email,
-                                        start_crunch: this.state.dataDetail.start_crunch,
-                                        end_crunch: this.state.dataDetail.end_crunch,
-                                        last_crunch: this.state.dataDetail.last_crunch
-                                    }
+                                    edit: this.state.dataDetail
                                 })}>Edit</button>
                             }
                             <button className="btn btn-sm text-white bgc-1F1E30 px-4 mx-3" onClick={(event) => this.setState({
@@ -721,6 +913,22 @@ class Home extends PureComponent {
                                             }
                                         }))}
                                     />
+                                    <FormControl fullWidth size={"small"} className="mt-3">
+                                        <InputLabel id="add-protocol">Protocol *</InputLabel>
+                                        <Select
+                                            labelId="add-protocol"
+                                            value={value.protocol}
+                                            onChange={(event) => this.setValue("add", update(this.state.add, {
+                                                [index]: {
+                                                    protocol: {$set: event.target.value}
+                                                }
+                                            }))}
+                                            defaultValue={this.protocols.first}
+                                        >
+                                            <MenuItem value={this.protocols.first}>HTTPS</MenuItem>
+                                            <MenuItem value={this.protocols.second}>HTTP</MenuItem>
+                                        </Select>
+                                    </FormControl>
                                     <TextField
                                         label="Domain *"
                                         size={"small"}
@@ -732,6 +940,37 @@ class Home extends PureComponent {
                                                 domain: {$set: event.target.value}
                                             }
                                         }))}
+                                    />
+                                    <FormControl fullWidth size={"small"} className="mt-3">
+                                        <InputLabel id="add-platform">Platform *</InputLabel>
+                                        <Select
+                                            labelId="add-platform"
+                                            error={this.state.addError[index].platform}
+                                            value={value.platform}
+                                            onChange={(event) => this.setValue("add", update(this.state.add, {
+                                                [index]: {
+                                                    platform: {$set: event.target.value},
+                                                    platform_domain: {$set: this.platforms[this.platformSearchObject(event.target.value)].domain}
+                                                }
+                                            }))}
+                                            defaultValue={this.platforms.first.value}
+                                        >
+                                            <MenuItem value={this.platforms.first.value}>{this.platforms.first.value}</MenuItem>
+                                            <MenuItem value={this.platforms.second.value}>{this.platforms.second.value}</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <TextField
+                                        label="Platform Domain *"
+                                        size={"small"}
+                                        className="w-100 mt-3"
+                                        error={this.state.addError[index].platform_domain}
+                                        value={value.platform_domain}
+                                        /*onChange={(event) => this.setValue("add", update(this.state.edit, {
+                                            [index]: {
+                                                platform_domain: {$set: event.target.value}
+                                            }
+                                        }))}*/
+                                        disabled
                                     />
                                     <TextField
                                         label="Start Crunch *"
@@ -786,7 +1025,7 @@ class Home extends PureComponent {
                                     $push: [this.addFields]
                                 }),
                                 addError: update(this.state.addError, {
-                                    $push: [this.addErrorFields]
+                                    $push: [this.errorFields]
                                 })
                             })}>+Add</button>
                         </div>
@@ -807,7 +1046,7 @@ class Home extends PureComponent {
                     {this.state.loading && <LinearProgress />}
                     <div className="py-3">
                         <div className="container">
-                            <div className="rounded d-flex justify-content-between box-shadow-primary bgc-white-opacity-95 hc-pagination px-3 py-2">
+                            <div className="rounded d-flex box-shadow-primary bgc-white-opacity-95 hc-pagination px-3 py-2">
                                 <FormControl size={"small"} sx={{minWidth: 100}}>
                                     <InputLabel id="query-filter">Filter</InputLabel>
                                     <Select
@@ -825,12 +1064,20 @@ class Home extends PureComponent {
                                         <MenuItem value={this.statuses.second}>Awake</MenuItem>
                                         <MenuItem value={this.statuses.third}>Done</MenuItem>
                                         <MenuItem value={this.statuses.fourth}>Found</MenuItem>
+                                        <MenuItem value={this.statuses.fifth}>Suspend</MenuItem>
                                     </Select>
                                 </FormControl>
+                                {/*<LoadingButton
+                                    color={"info"}
+                                    loading={this.state.loading}
+                                    variant={"contained"}
+                                    onClick={(event) => this.reMigrate()}
+                                    className="ms-2 white-space-nowrap"
+                                >Re-migrate</LoadingButton>*/}
                                 <TextField
                                     label="Search by Domain/Email"
                                     size={"small"}
-                                    className="w-100 mx-2"
+                                    className="w-100 ms-2"
                                     value={this.state.query.search}
                                     onChange={(event) => this.setValue("query", update(this.state.query, {
                                         search: {$set: event.target.value},
@@ -842,6 +1089,7 @@ class Home extends PureComponent {
                                     loading={this.state.loading}
                                     variant={"outlined"}
                                     onClick={(event) => this.onPageChange(event, 1)}
+                                    className="ms-2"
                                 >Search</LoadingButton>
                                 <LoadingButton
                                     color={"primary"}
@@ -865,6 +1113,17 @@ class Home extends PureComponent {
                                                         </td>
                                                         <td valign="middle" className="p-0">
                                                             <p className="m-0">{value.domain}</p>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td valign="middle" className="p-0">
+                                                            <p className="m-0">Platform</p>
+                                                        </td>
+                                                        <td valign="middle" className="p-0">
+                                                            <p className="m-0 px-1">:</p>
+                                                        </td>
+                                                        <td valign="middle" className="p-0">
+                                                            <p className="m-0">{value.platform}</p>
                                                         </td>
                                                     </tr>
                                                     <tr>
