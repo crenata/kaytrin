@@ -101,6 +101,9 @@
 .border-radius-1rem {
     border-radius: 1rem !important;
 }
+.border-1F1E30 {
+    border: 1px solid #1F1E30 !important;
+}
 
 .box-shadow-primary {
     box-shadow: 0 0 20px 10px #0FF;

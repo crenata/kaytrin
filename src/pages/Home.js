@@ -45,6 +45,20 @@ class Home extends PureComponent {
                 domain: "ap-1.evennode.com"
             }
         };
+        this.commandAttributes = [
+            {
+                label: "Start Crunch",
+                value: "{start_crunch}"
+            },
+            {
+                label: "End Crunch",
+                value: "{end_crunch}"
+            },
+            {
+                label: "Last Crunch",
+                value: "{last_crunch}"
+            }
+        ];
         this.addFields = {
             email: "",
             protocol: "",
@@ -53,7 +67,8 @@ class Home extends PureComponent {
             platform_domain: "",
             start_crunch: "",
             end_crunch: "",
-            last_crunch: ""
+            last_crunch: "",
+            command: ""
         };
         this.errorFields = {
             email: false,
@@ -64,7 +79,8 @@ class Home extends PureComponent {
             start_crunch: false,
             end_crunch: false,
             last_crunch: false,
-            status: false
+            status: false,
+            command: false
         };
         this.state = {
             collection: collection(db, "pvks"),
@@ -94,6 +110,7 @@ class Home extends PureComponent {
                 end_crunch: "",
                 last_crunch: "",
                 output: [],
+                command: "",
                 updated_at: {
                     seconds: 0,
                     nanoseconds: 0
@@ -111,6 +128,7 @@ class Home extends PureComponent {
                 end_crunch: "",
                 last_crunch: "",
                 output: [],
+                command: "",
                 updated_at: {
                     seconds: 0,
                     nanoseconds: 0
@@ -127,7 +145,8 @@ class Home extends PureComponent {
                 start_crunch: "",
                 end_crunch: "",
                 last_crunch: "",
-                status: ""
+                status: "",
+                command: ""
             },
             editError: this.errorFields,
             delete: "",
@@ -219,31 +238,24 @@ class Home extends PureComponent {
     platformSearchObject = (value) => {
         return Object.keys(this.platforms).find(key => this.platforms[key].value === value);
     };
+    appendToCursorPosition = (elementId, newText) => {
+        let element = document.getElementById(elementId);
+        let cursorPosition = element.selectionStart;
+        let textBeforeCursorPosition = element.value.substring(0, cursorPosition);
+        let textAfterCursorPosition = element.value.substring(cursorPosition, element.value.length);
+        let textValue = textBeforeCursorPosition + newText + textAfterCursorPosition;
+        return textValue;
+    };
 
     reMigrate() {
         this.verifyOwner().then((result) => {
             getDocs(this.state.collection).then((snapshot) => {
                 const data = snapshot.docs.map(value => value.data());
                 data.forEach((value, index, array) => {
-                    setDoc(doc(db, "pvks", value.id.toString()), {
-                        id: value.id,
-                        email: value.email,
-                        protocol: this.protocols.first,
-                        domain: value.domain,
-                        platform: this.platforms.first.value,
-                        platform_domain: this.platforms.first.domain,
-                        start_crunch: value.start_crunch,
-                        end_crunch: value.end_crunch,
-                        last_crunch: value.last_crunch,
-                        output: value.output,
-                        status: value.status,
-                        updated_at: value.updated_at
+                    updateDoc(doc(db, "pvks", value.id.toString()), {
+                        command: "live.js -f checking-addresses.txt -s {last_crunch} -e {end_crunch}"
                     }).then((result) => {
-                        deleteDoc(doc(db, "pvks", value.domain)).then((data) => {
-                            console.log("reMigrate/migrated", value.id);
-                        }).catch((error) => {
-                            console.error("reMigrate/deleteData", value.id, error.message);
-                        }).finally(() => {});
+                        console.log("reMigrate/migrated", value.id);
                     }).catch((error) => {
                         console.error("reMigrate/addData", value.id, error.message);
                     }).finally(() => {});
@@ -271,12 +283,14 @@ class Home extends PureComponent {
         if (data.status === this.statuses.zero || this.isSleep(data)) {
             this.verifyOwner().then((result) => {
                 let goto = document.createElement("a");
+                let command = data.command.replaceAll(" ", "+");
+                this.commandAttributes.forEach(value => {
+                    command = command.replaceAll(value.value, data[value.value.replace("{", "").replace("}", "")]);
+                });
                 goto.href = process.env.REACT_APP_AWAKE_URL
                     .replace("{protocol}", data.protocol)
                     .replace("{domain}", data.domain)
-                    .replace("{platform_domain}", data.platform_domain)
-                    .replace("{last_crunch}", data.last_crunch)
-                    .replace("{end_crunch}", data.end_crunch);
+                    .replace("{platform_domain}", data.platform_domain) + command;
                 goto.target = "_blank";
                 goto.click();
                 goto.remove();
@@ -303,6 +317,7 @@ class Home extends PureComponent {
                 let errorStartCrunch = IsEmpty(value.start_crunch);
                 let errorEndCrunch = IsEmpty(value.end_crunch);
                 let errorLastCrunch = IsEmpty(value.last_crunch);
+                let errorCommand = IsEmpty(value.command);
                 tempErrors.push({
                     email: errorEmail,
                     protocol: errorProtocol,
@@ -311,9 +326,20 @@ class Home extends PureComponent {
                     platform_domain: errorPlatformDomain,
                     start_crunch: errorStartCrunch,
                     end_crunch: errorEndCrunch,
-                    last_crunch: errorLastCrunch
+                    last_crunch: errorLastCrunch,
+                    command: errorCommand
                 });
-                if (!errorEmail && !errorProtocol && !errorDomain && !errorPlatform && !errorPlatformDomain && !errorStartCrunch && !errorEndCrunch && !errorLastCrunch) {
+                if (
+                    !errorEmail &&
+                    !errorProtocol &&
+                    !errorDomain &&
+                    !errorPlatform &&
+                    !errorPlatformDomain &&
+                    !errorStartCrunch &&
+                    !errorEndCrunch &&
+                    !errorLastCrunch &&
+                    !errorCommand
+                ) {
                     this.verifyOwner().then((result) => {
                         getDoc(doc(db, "pvks", value.domain)).then((data) => {
                             if (IsEmpty(data.data())) {
@@ -330,6 +356,7 @@ class Home extends PureComponent {
                                     last_crunch: value.last_crunch,
                                     output: [],
                                     status: this.statuses.zero,
+                                    command: value.command,
                                     updated_at: Timestamp.now()
                                 }).then((data) => {
                                     if (this.state.add.length > 1) {
@@ -389,6 +416,7 @@ class Home extends PureComponent {
             let errorEndCrunch = IsEmpty(data.end_crunch);
             let errorLastCrunch = IsEmpty(data.last_crunch);
             let errorStatus = IsEmpty(data.status);
+            let errorCommand = IsEmpty(data.command);
             if (
                 !errorEmail &&
                 !errorProtocol &&
@@ -398,7 +426,8 @@ class Home extends PureComponent {
                 !errorStartCrunch &&
                 !errorEndCrunch &&
                 !errorLastCrunch &&
-                !errorStatus
+                !errorStatus &&
+                !errorCommand
             ) {
                 this.verifyOwner().then((result) => {
                     updateDoc(doc(db, "pvks", this.state.dataDetail.id.toString()), {
@@ -410,7 +439,8 @@ class Home extends PureComponent {
                         start_crunch: data.start_crunch,
                         end_crunch: data.end_crunch,
                         last_crunch: data.last_crunch,
-                        status: data.status
+                        status: data.status,
+                        command: data.command
                     }).then((data) => {
                         this.setValue("editing", false);
                     }).catch((error) => {
@@ -430,7 +460,8 @@ class Home extends PureComponent {
                         start_crunch: errorStartCrunch,
                         end_crunch: errorEndCrunch,
                         last_crunch: errorLastCrunch,
-                        status: errorStatus
+                        status: errorStatus,
+                        command: errorCommand
                     }
                 });
             }
@@ -703,6 +734,17 @@ class Home extends PureComponent {
                                     </td>
                                 </tr>
                                 <tr>
+                                    <td valign="middle" className="p-0">
+                                        <p className="m-0">Command</p>
+                                    </td>
+                                    <td valign="middle" className="p-0">
+                                        <p className="m-0 px-1">:</p>
+                                    </td>
+                                    <td valign="middle" className="p-0">
+                                        <p className="m-0">{this.state.dataDetail.command}</p>
+                                    </td>
+                                </tr>
+                                <tr>
                                     <td valign="top" className="p-0">
                                         <p className="m-0">Output</p>
                                     </td>
@@ -744,6 +786,7 @@ class Home extends PureComponent {
                                     <InputLabel id="edit-protocol">Protocol *</InputLabel>
                                     <Select
                                         labelId="edit-protocol"
+                                        error={this.state.editError.protocol}
                                         value={this.state.edit.protocol}
                                         onChange={(event) => this.setValue("edit", update(this.state.edit, {
                                             protocol: {$set: event.target.value}
@@ -839,6 +882,26 @@ class Home extends PureComponent {
                                         <MenuItem value={this.statuses.fifth}>Suspend</MenuItem>
                                     </Select>
                                 </FormControl>
+                                <TextField
+                                    id="edit-command"
+                                    label="Command *"
+                                    size={"small"}
+                                    className="w-100 mt-3"
+                                    error={this.state.editError.command}
+                                    value={this.state.edit.command}
+                                    onChange={(event) => this.setValue("edit", update(this.state.edit, {
+                                        command: {$set: event.target.value}
+                                    }))}
+                                />
+                                <div className="mt-2">
+                                    {this.commandAttributes.map((value, index) => (
+                                        <button className={`btn btn-sm border-1F1E30 ${index !== 0 && "ms-2"}`} onClick={event => {
+                                            this.setValue("edit", update(this.state.edit, {
+                                                command: {$set: this.appendToCursorPosition("edit-command", value.value)}
+                                            }));
+                                        }}>{value.label}</button>
+                                    ))}
+                                </div>
                             </Collapse>
                         </div>
                         <div className="mt-3">
@@ -917,6 +980,7 @@ class Home extends PureComponent {
                                         <InputLabel id="add-protocol">Protocol *</InputLabel>
                                         <Select
                                             labelId="add-protocol"
+                                            error={this.state.addError[index].protocol}
                                             value={value.protocol}
                                             onChange={(event) => this.setValue("add", update(this.state.add, {
                                                 [index]: {
@@ -1008,6 +1072,30 @@ class Home extends PureComponent {
                                             }
                                         }))}
                                     />
+                                    <TextField
+                                        id={`add-command-${index}`}
+                                        label="Command *"
+                                        size={"small"}
+                                        className="w-100 mt-3"
+                                        error={this.state.addError[index].command}
+                                        value={value.command}
+                                        onChange={(event) => this.setValue("add", update(this.state.add, {
+                                            [index]: {
+                                                command: {$set: event.target.value}
+                                            }
+                                        }))}
+                                    />
+                                    <div className="mt-2">
+                                        {this.commandAttributes.map((value1, index1) => (
+                                            <button className={`btn btn-sm border-1F1E30 ${index1 !== 0 && "ms-2"}`} onClick={event => {
+                                                this.setValue("add", update(this.state.add, {
+                                                    [index]: {
+                                                        command: {$set: this.appendToCursorPosition(`add-command-${index}`, value1.value)}
+                                                    }
+                                                }));
+                                            }}>{value1.label}</button>
+                                        ))}
+                                    </div>
                                     {this.state.add.length > 1 && <button className="btn btn-sm btn-danger px-4 mt-3" onClick={(event) => this.setState({
                                         add: update(this.state.add, {
                                             $splice: [[index, 1]]
