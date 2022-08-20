@@ -1,5 +1,5 @@
 import React, {PureComponent} from "react";
-import PropTypes from 'prop-types';
+import PropTypes from "prop-types";
 import {CSSTransition, TransitionGroup} from "react-transition-group";
 import Web3Context from "../contexts/Web3Context";
 import Loading from "../helpers/loadings/Loading";

@@ -1,9 +1,14 @@
 import React, {PureComponent} from "react";
 import Config from "../configs/Config";
 import {db} from "../configs/FirebaseConfig";
+import * as Platform from "../constants/Platform";
+import * as Protocol from "../constants/Protocol";
+import * as Status from "../constants/Status";
+import * as Version from "../constants/Version";
 import {collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, setDoc, startAt, startAfter, Timestamp, updateDoc, where} from "firebase/firestore";
 import IsEmpty from "../helpers/IsEmpty";
 import IsEmail from "../helpers/IsEmail";
+import UcFirst from "../helpers/UcFirst";
 import update from "immutability-helper";
 import {Chip, Collapse, Divider, FormControl, InputLabel, LinearProgress, MenuItem, Select, TablePagination, TextField} from "@mui/material";
 import LoadingButton from "@mui/lab/LoadingButton";
@@ -23,28 +28,6 @@ class Home extends PureComponent {
         const perPage = parseInt(params.get("perPage")) || 50;
         const page = parseInt(params.get("page")) || 1;
         this.thirtyMinutesInMillis = 1000 * 60 * 30;
-        this.statuses = {
-            zero: "not_deployed",
-            first: "sleep",
-            second: "awake",
-            third: "done",
-            fourth: "found",
-            fifth: "suspend",
-        };
-        this.protocols = {
-            first: "https",
-            second: "http"
-        };
-        this.platforms = {
-            first: {
-                value: "Heroku",
-                domain: "herokuapp.com"
-            },
-            second: {
-                value: "Evennode",
-                domain: "ap-1.evennode.com"
-            }
-        };
         this.commandAttributes = [
             {
                 label: "Start Crunch",
@@ -68,6 +51,7 @@ class Home extends PureComponent {
             start_crunch: "",
             end_crunch: "",
             last_crunch: "",
+            version: "",
             command: ""
         };
         this.errorFields = {
@@ -79,6 +63,7 @@ class Home extends PureComponent {
             start_crunch: false,
             end_crunch: false,
             last_crunch: false,
+            version: false,
             status: false,
             command: false
         };
@@ -109,6 +94,7 @@ class Home extends PureComponent {
                 start_crunch: "",
                 end_crunch: "",
                 last_crunch: "",
+                version: "",
                 output: [],
                 command: "",
                 updated_at: {
@@ -127,6 +113,7 @@ class Home extends PureComponent {
                 start_crunch: "",
                 end_crunch: "",
                 last_crunch: "",
+                version: "",
                 output: [],
                 command: "",
                 updated_at: {
@@ -145,6 +132,7 @@ class Home extends PureComponent {
                 start_crunch: "",
                 end_crunch: "",
                 last_crunch: "",
+                version: "",
                 status: "",
                 command: ""
             },
@@ -163,32 +151,37 @@ class Home extends PureComponent {
         }
     }
     componentWillUnmount() {
-        if (!IsEmpty(this.state.listener)) this.state.listener();
+        this.unListen();
     }
 
     isSleep(data) {
         return Date.now() - (new Timestamp(data.updated_at.seconds, data.updated_at.nanoseconds)).toMillis() >= this.thirtyMinutesInMillis;
     }
+    getVersion(data) {
+        if (IsEmpty(data) || data === Version.Legacy) return "pvk";
+        else if (data === Version.V1) return "v1.php";
+        else return "pvk";
+    }
     getStatusText(data) {
-        if (data.status === this.statuses.zero) {
+        if (data.status === Status.NotDeployed) {
             return <p className="m-0 fw-bold"><span className="text-warning">Not Deployed</span></p>;
-        } else if (data.status === this.statuses.fifth) {
+        } else if (data.status === Status.Suspend) {
             return <p className="m-0 fw-bold"><span className="text-danger">Suspend</span></p>;
         } else if (data.output.length > 0 && this.isSleep(data)) {
             return <p className="m-0 fw-bold"><span className="text-primary">Found</span> & <span className="text-danger">Sleep</span></p>;
-        } else if (data.output.length > 0 && data.status === this.statuses.second) {
+        } else if (data.output.length > 0 && data.status === Status.Awake) {
             return <p className="m-0 fw-bold"><span className="text-primary">Found</span> & <span className="text-info">Awake</span></p>;
-        } else if (data.output.length > 0 && data.status === this.statuses.third) {
+        } else if (data.output.length > 0 && data.status === Status.Done) {
             return <p className="m-0 fw-bold"><span className="text-primary">Found</span> & <span className="text-success">Done</span></p>;
         } else if (data.output.length > 0) {
             return <p className="m-0 fw-bold"><span className="text-primary">Found</span></p>;
-        } else if (this.isSleep(data) && data.status === this.statuses.third) {
+        } else if (this.isSleep(data) && data.status === Status.Done) {
             return <p className="m-0 fw-bold"><span className="text-danger">Sleep</span> & <span className="text-success">Done</span></p>;
         } else if (this.isSleep(data)) {
             return <p className="m-0 fw-bold"><span className="text-danger">Sleep</span></p>;
-        } else if (data.status === this.statuses.third) {
+        } else if (data.status === Status.Done) {
             return <p className="m-0 fw-bold"><span className="text-success">Done</span></p>;
-        } else if (data.status === this.statuses.second) {
+        } else if (data.status === Status.Awake) {
             return <p className="m-0 fw-bold"><span className="text-info">Awake</span></p>;
         } else {
             return <p className="m-0 fw-bold"><span className="text-warning">Unknown</span></p>;
@@ -236,7 +229,7 @@ class Home extends PureComponent {
         });
     }
     platformSearchObject = (value) => {
-        return Object.keys(this.platforms).find(key => this.platforms[key].value === value);
+        return Object.keys(Platform).find(key => Platform[key].name === value);
     };
     appendToCursorPosition = (elementId, newText) => {
         let element = document.getElementById(elementId);
@@ -280,7 +273,7 @@ class Home extends PureComponent {
         });
     }
     awake(data) {
-        if (data.status === this.statuses.zero || this.isSleep(data)) {
+        if (data.status === Status.NotDeployed || this.isSleep(data)) {
             this.verifyOwner().then((result) => {
                 let goto = document.createElement("a");
                 let command = data.command.replaceAll(" ", "+");
@@ -290,7 +283,8 @@ class Home extends PureComponent {
                 goto.href = process.env.REACT_APP_AWAKE_URL
                     .replace("{protocol}", data.protocol)
                     .replace("{domain}", data.domain)
-                    .replace("{platform_domain}", data.platform_domain) + command;
+                    .replace("{platform_domain}", data.platform_domain)
+                    .replace("{version}", this.getVersion(data.version)) + command;
                 goto.target = "_blank";
                 goto.click();
                 goto.remove();
@@ -317,6 +311,7 @@ class Home extends PureComponent {
                 let errorStartCrunch = IsEmpty(value.start_crunch);
                 let errorEndCrunch = IsEmpty(value.end_crunch);
                 let errorLastCrunch = IsEmpty(value.last_crunch);
+                let errorVersion = IsEmpty(value.version);
                 let errorCommand = IsEmpty(value.command);
                 tempErrors.push({
                     email: errorEmail,
@@ -327,6 +322,7 @@ class Home extends PureComponent {
                     start_crunch: errorStartCrunch,
                     end_crunch: errorEndCrunch,
                     last_crunch: errorLastCrunch,
+                    version: errorVersion,
                     command: errorCommand
                 });
                 if (
@@ -338,6 +334,7 @@ class Home extends PureComponent {
                     !errorStartCrunch &&
                     !errorEndCrunch &&
                     !errorLastCrunch &&
+                    !errorVersion &&
                     !errorCommand
                 ) {
                     this.verifyOwner().then((result) => {
@@ -354,8 +351,9 @@ class Home extends PureComponent {
                                     start_crunch: value.start_crunch,
                                     end_crunch: value.end_crunch,
                                     last_crunch: value.last_crunch,
+                                    version: value.version,
                                     output: [],
-                                    status: this.statuses.zero,
+                                    status: Status.NotDeployed,
                                     command: value.command,
                                     updated_at: Timestamp.now()
                                 }).then((data) => {
@@ -415,6 +413,7 @@ class Home extends PureComponent {
             let errorStartCrunch = IsEmpty(data.start_crunch);
             let errorEndCrunch = IsEmpty(data.end_crunch);
             let errorLastCrunch = IsEmpty(data.last_crunch);
+            let errorVersion = IsEmpty(data.version);
             let errorStatus = IsEmpty(data.status);
             let errorCommand = IsEmpty(data.command);
             if (
@@ -426,6 +425,7 @@ class Home extends PureComponent {
                 !errorStartCrunch &&
                 !errorEndCrunch &&
                 !errorLastCrunch &&
+                !errorVersion &&
                 !errorStatus &&
                 !errorCommand
             ) {
@@ -439,6 +439,7 @@ class Home extends PureComponent {
                         start_crunch: data.start_crunch,
                         end_crunch: data.end_crunch,
                         last_crunch: data.last_crunch,
+                        version: data.version,
                         status: data.status,
                         command: data.command
                     }).then((data) => {
@@ -460,6 +461,7 @@ class Home extends PureComponent {
                         start_crunch: errorStartCrunch,
                         end_crunch: errorEndCrunch,
                         last_crunch: errorLastCrunch,
+                        version: errorVersion,
                         status: errorStatus,
                         command: errorCommand
                     }
@@ -493,12 +495,15 @@ class Home extends PureComponent {
         });
     }
 
+    unListen() {
+        if (!IsEmpty(this.state.listener)) this.state.listener();
+    }
     getDatabase() {
         this.getData();
         this.getLastData();
     }
     getData() {
-        if (!IsEmpty(this.state.listener)) this.state.listener();
+        this.unListen();
         this.setState({
             loading: true,
             listener: null
@@ -508,16 +513,16 @@ class Home extends PureComponent {
                 if (IsEmail(this.state.query.search)) queryWhere = where("email", "==", this.state.query.search);
                 else queryWhere = where("domain", "==", this.state.query.search);
             } else if (!IsEmpty(this.state.query.filter)) {
-                if (this.state.query.filter === this.statuses.first) queryWhere = where("updated_at", "<=", Timestamp.fromMillis(Date.now() - this.thirtyMinutesInMillis));
-                else if (this.state.query.filter === this.statuses.second) queryWhere = where("updated_at", ">", Timestamp.fromMillis(Date.now() - this.thirtyMinutesInMillis));
-                else if (this.state.query.filter === this.statuses.fourth) queryWhere = where("output", "!=", []);
+                if (this.state.query.filter === Status.Sleep) queryWhere = where("updated_at", "<=", Timestamp.fromMillis(Date.now() - this.thirtyMinutesInMillis));
+                else if (this.state.query.filter === Status.Awake) queryWhere = where("updated_at", ">", Timestamp.fromMillis(Date.now() - this.thirtyMinutesInMillis));
+                else if (this.state.query.filter === Status.Found) queryWhere = where("output", "!=", []);
                 else queryWhere = where("status", "==", this.state.query.filter);
             }
 
             let queryOrderBy = null;
-            if (this.state.query.filter === this.statuses.first) queryOrderBy = orderBy("updated_at");
-            else if (this.state.query.filter === this.statuses.second) queryOrderBy = orderBy("updated_at");
-            else if (this.state.query.filter === this.statuses.fourth) queryOrderBy = orderBy("output");
+            if (this.state.query.filter === Status.Sleep) queryOrderBy = orderBy("updated_at");
+            else if (this.state.query.filter === Status.Awake) queryOrderBy = orderBy("updated_at");
+            else if (this.state.query.filter === Status.Found) queryOrderBy = orderBy("output");
             else queryOrderBy = orderBy("id");
 
             let queryStart = null;
@@ -735,6 +740,17 @@ class Home extends PureComponent {
                                 </tr>
                                 <tr>
                                     <td valign="middle" className="p-0">
+                                        <p className="m-0">Version</p>
+                                    </td>
+                                    <td valign="middle" className="p-0">
+                                        <p className="m-0 px-1">:</p>
+                                    </td>
+                                    <td valign="middle" className="p-0">
+                                        <p className="m-0">{this.state.dataDetail.version}</p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td valign="middle" className="p-0">
                                         <p className="m-0">Command</p>
                                     </td>
                                     <td valign="middle" className="p-0">
@@ -791,10 +807,11 @@ class Home extends PureComponent {
                                         onChange={(event) => this.setValue("edit", update(this.state.edit, {
                                             protocol: {$set: event.target.value}
                                         }))}
-                                        defaultValue={this.protocols.first}
+                                        defaultValue={Protocol.Https}
                                     >
-                                        <MenuItem value={this.protocols.first}>HTTPS</MenuItem>
-                                        <MenuItem value={this.protocols.second}>HTTP</MenuItem>
+                                        {Object.keys(Protocol).map(protocol => (
+                                            <MenuItem value={Protocol[protocol]}>{Protocol[protocol]}</MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                                 <TextField
@@ -815,12 +832,13 @@ class Home extends PureComponent {
                                         value={this.state.edit.platform}
                                         onChange={(event) => this.setValue("edit", update(this.state.edit, {
                                             platform: {$set: event.target.value},
-                                            platform_domain: {$set: this.platforms[this.platformSearchObject(event.target.value)].domain}
+                                            platform_domain: {$set: Platform[this.platformSearchObject(event.target.value)].domain}
                                         }))}
-                                        defaultValue={this.platforms.first.value}
+                                        defaultValue={Platform.InfinityFree.name}
                                     >
-                                        <MenuItem value={this.platforms.first.value}>{this.platforms.first.value}</MenuItem>
-                                        <MenuItem value={this.platforms.second.value}>{this.platforms.second.value}</MenuItem>
+                                        {Object.keys(Platform).map(platform => (
+                                            <MenuItem value={Platform[platform].name}>{Platform[platform].name}</MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                                 <TextField
@@ -865,6 +883,22 @@ class Home extends PureComponent {
                                     }))}
                                 />
                                 <FormControl fullWidth size={"small"} className="mt-3">
+                                    <InputLabel id="edit-version">Version *</InputLabel>
+                                    <Select
+                                        labelId="edit-version"
+                                        error={this.state.editError.version}
+                                        value={this.state.edit.version}
+                                        onChange={(event) => this.setValue("edit", update(this.state.edit, {
+                                            version: {$set: event.target.value}
+                                        }))}
+                                        defaultValue={Version.V1}
+                                    >
+                                        {Object.keys(Version).map(version => (
+                                            <MenuItem value={Version[version]}>{Version[version]}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                                <FormControl fullWidth size={"small"} className="mt-3">
                                     <InputLabel id="edit-status">Status *</InputLabel>
                                     <Select
                                         labelId="edit-status"
@@ -872,14 +906,11 @@ class Home extends PureComponent {
                                         onChange={(event) => this.setValue("edit", update(this.state.edit, {
                                             status: {$set: event.target.value}
                                         }))}
-                                        defaultValue={this.statuses.zero}
+                                        defaultValue={Status.NotDeployed}
                                     >
-                                        <MenuItem value={this.statuses.zero}>Not Deployed</MenuItem>
-                                        <MenuItem value={this.statuses.first}>Sleep</MenuItem>
-                                        <MenuItem value={this.statuses.second}>Awake</MenuItem>
-                                        <MenuItem value={this.statuses.third}>Done</MenuItem>
-                                        <MenuItem value={this.statuses.fourth}>Found</MenuItem>
-                                        <MenuItem value={this.statuses.fifth}>Suspend</MenuItem>
+                                        {Object.keys(Status).map(status => (
+                                            <MenuItem value={Status[status]}>{UcFirst(Status[status].replaceAll("_", " "))}</MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                                 <TextField
@@ -987,10 +1018,11 @@ class Home extends PureComponent {
                                                     protocol: {$set: event.target.value}
                                                 }
                                             }))}
-                                            defaultValue={this.protocols.first}
+                                            defaultValue={Protocol.Https}
                                         >
-                                            <MenuItem value={this.protocols.first}>HTTPS</MenuItem>
-                                            <MenuItem value={this.protocols.second}>HTTP</MenuItem>
+                                            {Object.keys(Protocol).map(protocol => (
+                                                <MenuItem value={Protocol[protocol]}>{Protocol[protocol]}</MenuItem>
+                                            ))}
                                         </Select>
                                     </FormControl>
                                     <TextField
@@ -1014,13 +1046,14 @@ class Home extends PureComponent {
                                             onChange={(event) => this.setValue("add", update(this.state.add, {
                                                 [index]: {
                                                     platform: {$set: event.target.value},
-                                                    platform_domain: {$set: this.platforms[this.platformSearchObject(event.target.value)].domain}
+                                                    platform_domain: {$set: Platform[this.platformSearchObject(event.target.value)].domain}
                                                 }
                                             }))}
-                                            defaultValue={this.platforms.first.value}
+                                            defaultValue={Platform.InfinityFree.name}
                                         >
-                                            <MenuItem value={this.platforms.first.value}>{this.platforms.first.value}</MenuItem>
-                                            <MenuItem value={this.platforms.second.value}>{this.platforms.second.value}</MenuItem>
+                                            {Object.keys(Platform).map(platform => (
+                                                <MenuItem value={Platform[platform].name}>{Platform[platform].name}</MenuItem>
+                                            ))}
                                         </Select>
                                     </FormControl>
                                     <TextField
@@ -1072,6 +1105,24 @@ class Home extends PureComponent {
                                             }
                                         }))}
                                     />
+                                    <FormControl fullWidth size={"small"} className="mt-3">
+                                        <InputLabel id="add-version">Version *</InputLabel>
+                                        <Select
+                                            labelId="add-version"
+                                            error={this.state.addError[index].version}
+                                            value={value.version}
+                                            onChange={(event) => this.setValue("add", update(this.state.add, {
+                                                [index]: {
+                                                    version: {$set: event.target.value}
+                                                }
+                                            }))}
+                                            defaultValue={Version.V1}
+                                        >
+                                            {Object.keys(Version).map(version => (
+                                                <MenuItem value={Version[version]}>{Version[version]}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
                                     <TextField
                                         id={`add-command-${index}`}
                                         label="Command *"
@@ -1147,12 +1198,9 @@ class Home extends PureComponent {
                                         autoWidth
                                     >
                                         <MenuItem value=""><em>None</em></MenuItem>
-                                        <MenuItem value={this.statuses.zero}>Not Deployed</MenuItem>
-                                        <MenuItem value={this.statuses.first}>Sleep</MenuItem>
-                                        <MenuItem value={this.statuses.second}>Awake</MenuItem>
-                                        <MenuItem value={this.statuses.third}>Done</MenuItem>
-                                        <MenuItem value={this.statuses.fourth}>Found</MenuItem>
-                                        <MenuItem value={this.statuses.fifth}>Suspend</MenuItem>
+                                        {Object.keys(Status).map(status => (
+                                            <MenuItem value={Status[status]}>{UcFirst(Status[status].replaceAll("_", " "))}</MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                                 {/*<LoadingButton
@@ -1232,7 +1280,7 @@ class Home extends PureComponent {
                                                     <button className="btn btn-sm btn-secondary w-100" onClick={(event) => this.setValue("dataDetail", value, () => this.setValue("modalDetail", true))}>Info</button>
                                                 </div>
                                                 <div className="col-12 col-sm-12 col-md-6 col-lg-6 col-xl-6 mt-2 mt-sm-2 mt-md-0 mt-lg-0 mt-xl-0">
-                                                    {value.status === this.statuses.zero ?
+                                                    {value.status === Status.NotDeployed ?
                                                         <button className="btn btn-sm bgc-1C152D text-white w-100" onClick={(event) => this.awake(value)}>Start</button> :
                                                         <button className="btn btn-sm bgc-1C152D text-white w-100" onClick={(event) => this.awake(value)} disabled={!this.isSleep(value)}>Awake</button>
                                                     }
