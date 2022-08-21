@@ -27,7 +27,7 @@ class Home extends PureComponent {
         const filter = params.get("filter") || "";
         const perPage = parseInt(params.get("perPage")) || 50;
         const page = parseInt(params.get("page")) || 1;
-        this.thirtyMinutesInMillis = 1000 * 60 * 30;
+        this.timeSleepInMillis = 1000 * 60 * 60 * 3;
         this.commandAttributes = [
             {
                 label: "Start Crunch",
@@ -155,7 +155,7 @@ class Home extends PureComponent {
     }
 
     isSleep(data) {
-        return Date.now() - (new Timestamp(data.updated_at.seconds, data.updated_at.nanoseconds)).toMillis() >= this.thirtyMinutesInMillis;
+        return Date.now() - (new Timestamp(data.updated_at.seconds, data.updated_at.nanoseconds)).toMillis() >= this.timeSleepInMillis;
     }
     getVersion(data) {
         if (IsEmpty(data) || data === Version.Legacy) return "pvk";
@@ -513,8 +513,8 @@ class Home extends PureComponent {
                 if (IsEmail(this.state.query.search)) queryWhere = where("email", "==", this.state.query.search);
                 else queryWhere = where("domain", "==", this.state.query.search);
             } else if (!IsEmpty(this.state.query.filter)) {
-                if (this.state.query.filter === Status.Sleep) queryWhere = where("updated_at", "<=", Timestamp.fromMillis(Date.now() - this.thirtyMinutesInMillis));
-                else if (this.state.query.filter === Status.Awake) queryWhere = where("updated_at", ">", Timestamp.fromMillis(Date.now() - this.thirtyMinutesInMillis));
+                if (this.state.query.filter === Status.Sleep) queryWhere = where("updated_at", "<=", Timestamp.fromMillis(Date.now() - this.timeSleepInMillis));
+                else if (this.state.query.filter === Status.Awake) queryWhere = where("updated_at", ">", Timestamp.fromMillis(Date.now() - this.timeSleepInMillis));
                 else if (this.state.query.filter === Status.Found) queryWhere = where("output", "!=", []);
                 else queryWhere = where("status", "==", this.state.query.filter);
             }
